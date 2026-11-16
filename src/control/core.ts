@@ -389,6 +389,13 @@ export class ControlPlane {
       let inputs: AttemptInput[];
       try { inputs = await this.#resolveInputs(j); }
       catch (e) { await this.#failUnleasable(j, (e as Error).message); continue; }
+      // Secrets are resolved BEFORE the lease: a missing secret fails the job cleanly instead of stranding a lease.
+      let secrets: Record<string, string> = {};
+      if (j.spec.secrets.length) {
+        if (!j.trusted) { await this.#failUnleasable(j, "untrusted job requested secrets"); continue; }
+        try { secrets = await this.secrets.resolve(j.repository, j.spec.secrets); }
+        catch (e) { await this.#failUnleasable(j, `secret not available: ${(e as Error).message}`); continue; }
+      }
       try {
         await this.store.transact(`lease:${leaseId}`, [
           { collection: C.jobs, id: j.id, expectedVersionToken: fenceOf(j), value: { ...body(j), state: "leased", attempts: n, leaseId, leaseExpiresAt: now + this.leaseMs, workerId: w.id, attemptId } },
@@ -402,11 +409,6 @@ export class ControlPlane {
         throw e;
       }
       const run = await this.store.get<RunRec>(C.runs, j.runId);
-      let secrets: Record<string, string> = {};
-      if (j.spec.secrets.length) {
-        if (!j.trusted) throw new AuthorityError("untrusted job requested secrets"); // unreachable: rejected at intake
-        secrets = await this.secrets.resolve(j.repository, j.spec.secrets);
-      }
       const checkout = isInternal(j.repository) ? null : await this.scm.checkoutAuth(j.repository);
       return {
         attemptId, leaseId, jobId: j.id, runId: j.runId, leaseMs: this.leaseMs, job: j.spec, repository: j.repository, sha: j.sha,

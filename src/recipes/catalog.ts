@@ -101,7 +101,7 @@ export function toolchainFor(f: ProjectFacts, eco: Ecosystem): { tc: Toolchain; 
 const node = (eco: Ecosystem) => eco === "node" || eco === "bun";
 const scriptOr = (f: ProjectFacts, names: string[]) => names.find((s) => realScript(f, s)) ?? null;
 
-type Implement = (f: ProjectFacts, eco: Ecosystem, t: { tc: Toolchain; install: string[]; pmRun: (s: string) => string }) => { run: string[]; summary: string; status?: Status } | Unsupported;
+type Implement = (f: ProjectFacts, eco: Ecosystem, t: { tc: Toolchain; install: string[]; pmRun: (s: string) => string }) => { run: string[]; summary: string; status?: Status; install?: false } | Unsupported;
 
 export interface Capability {
   id: string; version: string; kind: Kind; title: string;
@@ -171,8 +171,8 @@ export const CAPABILITIES: Capability[] = [
   { id: "check.formatted", version: "1.0.0", kind: "check", status: "implemented", title: "The code is formatted",
     phrases: ["code is formatted", "formatting is correct", "code is formatted correctly", "code is consistently formatted"], evidence: ["exit status", "log"],
     implement: (f, eco, t) => {
-      if (eco === "rust") return { run: ["cargo fmt --all -- --check"], summary: "runs `cargo fmt --check`" };
-      if (eco === "go") return { run: ['test -z "$(gofmt -l .)"'], summary: "checks `gofmt -l` reports nothing", status: "partial" };
+      if (eco === "rust") return { run: ["cargo fmt --all -- --check"], summary: "runs `cargo fmt --check`", install: false };
+      if (eco === "go") return { run: ['test -z "$(gofmt -l .)"'], summary: "checks `gofmt -l` reports nothing", status: "partial", install: false };
       if (node(eco)) { const s = scriptOr(f, ["format:check", "fmt:check", "prettier:check", "check-format"]); return s ? { run: [t.pmRun(s)], summary: `runs \`${t.pmRun(s)}\`` } : { unsupported: "package.json has no \"format:check\" script. Add one, or remove this line.", status: "unavailable" }; }
       return { unsupported: `format checking for ${eco} is not supported yet`, status: "unavailable" };
     } },

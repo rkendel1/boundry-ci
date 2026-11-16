@@ -18,6 +18,13 @@ import { WorkerAgent } from "../src/worker/agent.ts";
 import { OciExecutor } from "../src/worker/executor.ts";
 import { compile } from "../src/spec/compile.ts";
 import { Deployer, type Layout } from "../src/deploy/lifecycle.ts";
+import { compileRecipeSource, RecipeError, RECIPES_DIR, catalogTable } from "../src/recipes/compile.ts";
+import { explain, explainDiagnostics, diffCompiled } from "../src/recipes/explain.ts";
+import { localSource } from "../src/recipes/facts.ts";
+import { authorRecipe } from "../src/recipes/author.ts";
+import { convertGithubWorkflow, convertLegacyCiYaml, renderReport } from "../src/recipes/convert.ts";
+import { readdirSync, writeFileSync, mkdirSync } from "node:fs";
+import { basename, dirname } from "node:path";
 
 const env = (k: string, d?: string): string => {
   const v = process.env[k] ?? d;
@@ -150,6 +157,76 @@ async function deployCmd(args: string[]) {
   }
 }
 
+/** `boundry-ci recipe …` — everything works offline and without an LLM. */
+async function recipeCmd(args: string[]) {
+  const flag = (n: string) => { const i = args.indexOf(n); return i >= 0 ? args[i + 1] : undefined; };
+  const repoArg = (i: number) => args[i] ?? ".";
+  const compileFile = async (repo: string, file: string) => {
+    const path = file.includes("/") ? file : `${RECIPES_DIR}/${file}`;
+    const src = readFileSync(join(repo, path), "utf8");
+    return compileRecipeSource(src, path, localSource(repo), null);
+  };
+  const fail = (e: unknown) => { if (e instanceof RecipeError) { console.log(explainDiagnostics(e.path, e.diagnostics)); process.exit(1); } throw e; };
+  switch (args[0]) {
+    case "new": {
+      const repo = repoArg(1);
+      const goal = (flag("--goal") ?? "check") as "check" | "release";
+      const a = await authorRecipe(localSource(repo), { goal, dir: flag("--dir"), ecosystem: flag("--project") as any, outputs: flag("--output")?.split(","), approver: flag("--approver"), publishTo: flag("--publish") as any });
+      for (const q of a.questions) console.error(`? ${q.question}${q.answers ? ` [${q.answers.join(" | ")}]` : ""}\n  answer with ${q.flag}`);
+      for (const n of a.notes) console.error(`· ${n}`);
+      if (!a.recipe) process.exit(3);
+      const out = flag("--write");
+      if (out) { mkdirSync(dirname(join(repo, out)), { recursive: true }); writeFileSync(join(repo, out), a.recipe); console.error(`wrote ${out}`); }
+      else process.stdout.write(a.recipe);
+      if (args.includes("--explain")) console.error("\n" + explain(a.compiled!));
+      return;
+    }
+    case "check": {
+      const repo = repoArg(1);
+      let names: string[] = [];
+      try { names = readdirSync(join(repo, RECIPES_DIR)).filter((n) => n.endsWith(".md") && n.toLowerCase() !== "readme.md").sort(); } catch { /* none */ }
+      if (!names.length) { console.log(`no recipes in ${RECIPES_DIR}/`); process.exit(1); }
+      let bad = 0;
+      for (const n of names) {
+        try { const c = await compileFile(repo, n); console.log(`ok   ${RECIPES_DIR}/${n} — ${c.title} · ${c.jobs.length} job(s) · definition ${c.definitionDigest.slice(0, 12)}`); }
+        catch (e) { if (!(e instanceof RecipeError)) throw e; bad++; console.log(explainDiagnostics(e.path, e.diagnostics)); }
+      }
+      process.exit(bad ? 1 : 0);
+    }
+    case "explain": try { console.log(explain(await compileFile(repoArg(1), args[2]))); } catch (e) { fail(e); } return;
+    case "plan": try { const c = await compileFile(repoArg(1), args[2]); console.log(JSON.stringify({ definitionDigest: c.definitionDigest, compiler: c.compiler, catalog: c.catalog, capabilities: c.capabilities, facts: c.facts, plan: c.plan }, null, 2)); } catch (e) { fail(e); } return;
+    case "diff": {
+      const repo = repoArg(1);
+      try {
+        const [a, b] = await Promise.all([args[2], args[3]].map((f) => compileRecipeSource(readFileSync(f, "utf8"), `${RECIPES_DIR}/${basename(args[3])}`, localSource(repo), null)));
+        const d = diffCompiled(a, b); console.log(d.text); process.exit(d.changed ? 10 : 0);
+      } catch (e) { fail(e); }
+      return;
+    }
+    case "capabilities": {
+      const t = catalogTable();
+      for (const kind of ["trigger", "check", "step", "approval", "keep", "after", "project"]) {
+        console.log(`\n${kind.toUpperCase()}`);
+        for (const c of t.filter((x) => x.kind === kind)) console.log(`  ${c.status.padEnd(11)} ${c.says.padEnd(48)} ${c.id}@${c.version}${c.note ? ` — ${c.note}` : ""}`);
+      }
+      return;
+    }
+    case "convert": {
+      const file = args[1], repo = args[2] ?? ".";
+      const src = readFileSync(file, "utf8");
+      const r = file.endsWith("ci.yaml") && src.includes("version: 1") ? convertLegacyCiYaml(src, file) : convertGithubWorkflow(src, file);
+      let result: string;
+      try { const c = await compileRecipeSource(r.recipe, `${RECIPES_DIR}/converted.md`, localSource(repo), null); result = `Yes — ${c.jobs.length} job(s), definition ${c.definitionDigest.slice(0, 12)}.`; }
+      catch (e) { if (!(e instanceof RecipeError)) throw e; result = "No, not until the decisions are made:\n\n" + explainDiagnostics("draft", e.diagnostics).split("\n").slice(2).join("\n"); }
+      console.log(renderReport(r, result));
+      return;
+    }
+    default:
+      console.error("usage: boundry-ci recipe new <repo> [--goal check|release] [--output dir] [--project kind] [--dir folder] [--approver name --publish npm] [--write path] [--explain]\n       boundry-ci recipe check|explain|plan <repo> [recipe.md] | diff <repo> <old.md> <new.md> | capabilities | convert <workflow.yml> [repo]");
+      process.exit(2);
+  }
+}
+
 async function main() {
   const [cmd, ...rest] = process.argv.slice(2);
   switch (cmd) {
@@ -165,6 +242,7 @@ async function main() {
       return;
     }
     case "deploy": return deployCmd(rest);
+    case "recipe": return recipeCmd(rest);
     case "admin":
       if (rest[0] === "ensure-worker" && rest[1]) {
         const cp = new ControlPlane({ store: store(), scm: github(), secrets: new FileSecrets("/nonexistent") });

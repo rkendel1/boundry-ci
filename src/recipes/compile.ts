@@ -200,7 +200,7 @@ export function compileParsed(parsed: ParsedRecipe, source: string, path: string
     if (!r || !toolchain) return;
     const tcx = toolchain.tc;
     const isPublish = !!it.cap.permissions?.length;
-    const install = !it.cap.input && toolchain.install.length > 0;
+    const install = !it.cap.input && toolchain.install.length > 0 && (r as { install?: false }).install !== false;
     const runSteps: { name: string; run: string }[] = [];
     if (install) runSteps.push({ name: "Install dependencies", run: toolchain.install.join("\n") });
     let main = r.run.join("\n");
