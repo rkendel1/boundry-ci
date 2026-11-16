@@ -1,29 +1,37 @@
-# Boundry CI Linux worker on the shared host. Runs as the unprivileged `bci-worker` account and drives
-# ROOTLESS Podman as that account: no Docker socket, no root daemon access, job containers live in the
-# account's user namespace. Prerequisites are checked by ci-preflight.sh (podman, uidmap, /etc/subuid).
+# Boundry CI Linux worker on the shared host. Installed once by the operator (approval required);
+# upgrades never edit this file: `boundry-ci deploy apply` flips /opt/boundry-ci/active and restarts the unit.
+#
+# Runs as the unprivileged `bci-worker` account and drives ROOTLESS Podman as that account: no Docker
+# socket, no root daemon, job containers live in bci-worker's user namespace. Prerequisites (approval
+# required, checked by ci-preflight.sh): podman, uidmap, passt or slirp4netns, fuse-overlayfs, a subuid/
+# subgid range for bci-worker, `loginctl enable-linger bci-worker` (so /run/user/<uid> exists without a login).
 [Unit]
-Description=Boundry CI worker (linux-small, linux-build)
+Description=Boundry CI worker
 After=network-online.target
 Wants=network-online.target
 
 [Service]
 User=bci-worker
 Group=bci-worker
-WorkingDirectory=/opt/boundry-ci
-Environment=BCI_CONTROL_URL=http://127.0.0.1:21030
-Environment=BCI_WORKER_TOKEN_FILE=/etc/boundry-ci/worker/token
-Environment=BCI_CAPABILITIES=linux-small,linux-build
-Environment=BCI_WORK_ROOT=/var/lib/bci-worker/work
-Environment=BCI_OCI_CLI=podman
-ExecStart=/usr/bin/node /opt/boundry-ci/bin/boundry-ci.ts worker
+# Non-secret settings rendered per release; the token is a 0400 file owned by bci-worker.
+EnvironmentFile=/opt/boundry-ci/active/worker.env
+Environment=XDG_RUNTIME_DIR=/run/user/%U
+ExecStart=/opt/boundry-ci/active/runtime/node /opt/boundry-ci/active/app/bin/boundry-ci.ts worker
+# SIGTERM = stop leasing, finish the job in progress, exit. A job longer than this is cut off and its
+# lease expires; the control plane then retries or fails it (never left running).
+KillSignal=SIGTERM
+TimeoutStopSec=600
 Restart=always
 RestartSec=5
-# Contain the whole worker (agent + rootless containers) in its own slice so CI cannot starve production.
+# Contain the worker and every rootless container it starts under the CI ceiling.
 Slice=boundry-ci.slice
-NoNewPrivileges=no
+Delegate=yes
 ProtectSystem=strict
-ReadWritePaths=/var/lib/bci-worker /run/user
+ProtectHome=read-only
+ReadWritePaths=/var/lib/boundry-ci/work /home/bci-worker/.local/share/containers /run/user
 PrivateTmp=yes
+NoNewPrivileges=no
+# (newuidmap/newgidmap are setuid helpers rootless Podman needs; NoNewPrivileges=yes would break them.)
 
 [Install]
 WantedBy=multi-user.target

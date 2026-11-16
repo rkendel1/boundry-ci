@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# Run `boundry-ci deploy …` on the host without depending on the host's Node version.
+#   bci-deploy --image <control-image-ref> <deploy args…>   # use the tool from a (new) pinned image
+#   bci-deploy <deploy args…>                               # use the tool from the current release
+# The tool is copied out of the image into a private temp dir (nothing is installed), and runs as root
+# because it manages /opt/boundry-ci, /etc/boundry-ci, /var/lib/boundry-ci, compose and systemd.
+set -euo pipefail
+[ "$(id -u)" = 0 ] || { echo "REFUSED: run as root (sudo)" >&2; exit 2; }
+if [ "${1:-}" = "--image" ]; then
+  image=${2:?--image needs a reference}; shift 2
+  tmp=$(mktemp -d); trap 'rm -rf "$tmp"' EXIT
+  name="bci-tool-$$"; docker create --name "$name" "$image" >/dev/null
+  trap 'docker rm -f "$name" >/dev/null 2>&1; rm -rf "$tmp"' EXIT
+  docker cp "$name:/app" "$tmp/app"; docker cp -L "$name:/usr/local/bin/node" "$tmp/node"
+  node="$tmp/node"; app="$tmp/app"
+else
+  [ -e /opt/boundry-ci/current ] || { echo "REFUSED: nothing installed; use --image <ref> for the first install" >&2; exit 2; }
+  node=/opt/boundry-ci/current/runtime/node; app=/opt/boundry-ci/current/app
+fi
+exec "$node" "$app/bin/boundry-ci.ts" deploy "$@"
