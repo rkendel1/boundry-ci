@@ -18,7 +18,7 @@ jobs:
       - name: pipeline schema is valid JSON
         run: node -e "JSON.parse(require('fs').readFileSync('schema/ci.v1.schema.json','utf8'))"
       - name: shell scripts parse
-        run: for f in tools/*.sh; do sh -n "$f"; done
+        run: for f in tools/*.sh; do bash -n "$f"; done
   unit:
     name: unit and compiler tests
     needs: [static]

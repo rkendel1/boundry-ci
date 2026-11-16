@@ -149,6 +149,12 @@ export function createControlServer(o: HttpOptions): Server {
         const jobs = await cp.store.query(C.jobs, [{ field: "runId", eq: mm[1] }], { limit: 1000 });
         return send(res, 200, jobs.map(({ spec, ...j }: any) => ({ ...j, requires: spec.requires, needs: spec.needs })));
       }
+      mm = m(/^\/v1\/runs\/([^/]+)\/statuses$/);
+      if (req.method === "GET" && mm) {
+        operator(req);
+        const rows = await cp.store.query(C.outbox, [{ field: "runId", eq: mm[1] }], { limit: 1000, orderBy: [{ field: "createdAt", direction: "asc" }] });
+        return send(res, 200, rows.map((r: any) => ({ context: r.context, state: r.state, delivered: r.delivered, attempts: r.attempts, lastError: r.lastError ?? null })));
+      }
       mm = m(/^\/v1\/attempts\/([^/]+)\/log$/);
       if (req.method === "GET" && mm) {
         operator(req);
