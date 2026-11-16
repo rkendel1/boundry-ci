@@ -1,0 +1,11 @@
+# Hourly checksummed backup of Boundry CI (CI FeltDB online backup + artifact objects + release + journal).
+# Uses the backup key (FeltDB scope cluster:write only). Approval required to install.
+[Unit]
+Description=Boundry CI backup
+After=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/boundry-ci/bin/bci-deploy backup /var/backups/boundry-ci
+Nice=10
+IOSchedulingClass=idle

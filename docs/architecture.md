@@ -48,7 +48,14 @@ waiting ──deps succeeded──▶ queued ──lease (CAS)──▶ leased �
 leased|running ──lease expired / timeout──▶ queued (retry budget left) | failed | cancelled (if cancel requested)
 ```
 
-Every transition is a FeltDB transaction fenced on the record's `__version`. A lease writes the job and creates the attempt in one transaction; two workers can never hold the same job (acceptance test 02).
+Every transition is a FeltDB transaction fenced on the record's version token (`fv1:<FeltDB-History>:<__version>`), which stays correct across a `feltdb-server backup restore` (a restore starts a new history and refuses bare numeric fences). A lease writes the job and creates the attempt in one transaction; two workers can never hold the same job (acceptance test 02).
+
+## Deployment
+
+`src/deploy/` owns install/upgrade/rollback/backup/restore on one host; see `docs/deploy/runbook.md`. Deployment
+health is verified independently of process exit codes, including a canary run in the reserved `_boundry/` repository
+namespace (never a valid GitHub owner), which exercises lease → executor → artifact → completion and never reports to a
+source provider.
 
 ## Trust model
 

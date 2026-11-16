@@ -14,7 +14,8 @@ if [ "${1:-}" = "--image" ]; then
   docker cp "$name:/app" "$tmp/app"; docker cp -L "$name:/usr/local/bin/node" "$tmp/node"
   node="$tmp/node"; app="$tmp/app"
 else
-  [ -e /opt/boundry-ci/current ] || { echo "REFUSED: nothing installed; use --image <ref> for the first install" >&2; exit 2; }
-  node=/opt/boundry-ci/current/runtime/node; app=/opt/boundry-ci/current/app
+  root=${BCI_DEPLOY_ROOT:-/opt/boundry-ci}
+  [ -e "$root/current" ] || { echo "REFUSED: nothing installed at $root; use --image <ref> for the first install" >&2; exit 2; }
+  node="$root/current/runtime/node"; app="$root/current/app"
 fi
 exec "$node" "$app/bin/boundry-ci.ts" deploy "$@"
