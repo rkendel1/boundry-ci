@@ -45,8 +45,16 @@ export interface PlanJob {
   permissions: { release: boolean; deploy: boolean };
   approval: { required: boolean; approvers: string[] };
   cache: { name: string; path: string; keyFiles: string[] }[];
-  artifacts: { name: string; path: string; retentionDays: number }[];
+  artifacts: { name: string; path: string; retentionDays: number; always?: boolean }[];
   steps: { name: string; run: string }[];
+  /** Config digest the image must have (for images referenced by tag, e.g. Boundry toolchain images). */
+  imageDigest?: string;
+  /** Artifacts of earlier jobs in the same run, fetched by digest into boundry-in/<artifact>. */
+  inputs?: { job: string; artifact: string }[];
+  /** Capability ids@versions this job implements (recipes). */
+  capabilities?: string[];
+  /** A recipe author's own script (escape hatch). */
+  custom?: boolean;
 }
 
 export interface Plan {
@@ -57,6 +65,10 @@ export interface Plan {
   concurrency: { group: string; cancelInProgress: boolean } | null;
   downstream: { repository: string; ref: string | null }[];
   jobs: PlanJob[];
+  /** Report commit statuses. Legacy pipelines always report; recipes only when they say so. */
+  report?: boolean;
+  /** Present when the plan was compiled from a Boundry Recipe. */
+  recipe?: { path: string; slug: string; definitionDigest: string; catalog: string; capabilities: Record<string, string>; factsDigest: string };
 }
 
 export interface CompileResult {

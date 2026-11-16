@@ -21,6 +21,8 @@ export interface ScmAdapter {
   readonly provider: string;
   /** Read a file at an exact commit; null if absent. */
   readFile(repository: string, sha: string, path: string): Promise<string | null>;
+  /** Entry names (files and directories) of a directory at an exact commit; null if the directory is absent. */
+  listFiles(repository: string, sha: string, dir: string): Promise<string[] | null>;
   /** Resolve a branch to its current head commit; null if absent. */
   resolveBranch(repository: string, branch: string): Promise<string | null>;
   /** Report a commit status. Must be idempotent for identical inputs. */

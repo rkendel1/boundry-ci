@@ -63,8 +63,19 @@ export class OciExecutor {
       .on("close", (c) => (c === 0 ? res() : rej(new Error(`cache volume init failed (${c})`)))));
   }
 
+  /** Refuse an image whose config digest is not the pinned one (images referenced by tag). */
+  async #verifyImage(image: string, expected: string): Promise<void> {
+    const id = await new Promise<string>((res) => {
+      const p = spawn(this.cli, ["image", "inspect", "--format", "{{.Id}}", image], { stdio: ["ignore", "pipe", "ignore"] });
+      let out = ""; p.stdout.on("data", (d) => (out += d)); p.on("close", () => res(out.trim()));
+    });
+    const norm = id.startsWith("sha256:") ? id : `sha256:${id}`;
+    if (norm !== expected) throw new Error(`image ${image} is ${id ? norm.slice(0, 19) : "absent"}, pinned ${expected.slice(0, 19)}`);
+  }
+
   async run(x: ExecInput): Promise<ExecResult> {
     const { job } = x;
+    if (job.imageDigest) await this.#verifyImage(job.image, job.imageDigest);
     const name = `bci-${randomUUID()}`;
     const secretDir = mkdtempSync(join(tmpdir(), "bci-env-"));
     const envFile = join(secretDir, "env");

@@ -3,7 +3,9 @@
 // The worker owns no job state: everything it learns comes from, and is reported to, the control plane.
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
-import { mkdtempSync, rmSync, createReadStream, statSync } from "node:fs";
+import { mkdtempSync, rmSync, createReadStream, createWriteStream, statSync, mkdirSync } from "node:fs";
+import { pipeline } from "node:stream/promises";
+import { Readable } from "node:stream";
 import { join } from "node:path";
 import { hostname } from "node:os";
 import { OciExecutor, safeJoin } from "./executor.ts";
@@ -106,13 +108,17 @@ export class WorkerAgent {
       logs.write(`::boundry-ci:: source ${g.repository}@${g.sha} definition ${g.provenance.sourceDigest} plan ${g.provenance.planDigest}\n`);
       if (g.checkout) await checkout(g, workspace);
       else await run("chmod", ["-R", "a+rwX", workspace]); // internal canary: empty workspace, no source
+      await this.#fetchInputs(g, workspace, logs);
       const ex = await this.exec.run({ job: g.job, workspace, repository: g.repository, trusted: g.trusted, secrets: g.secrets, onOutput: (t) => logs.write(t), signal: abort.signal });
       let artifacts: AttemptResult["artifacts"] = [];
       let outcome: AttemptResult["outcome"] = ex.cancelled ? "cancelled" : ex.exitCode === 0 ? "succeeded" : "failed";
       let reason = ex.reason;
       if (outcome === "succeeded") {
-        try { artifacts = await this.#uploadArtifacts(g, workspace, logs); }
+        try { artifacts = await this.#uploadArtifacts(g, workspace, logs, false); }
         catch (e) { outcome = "failed"; reason = `artifact upload failed: ${(e as Error).message}`; }
+      } else if (outcome === "failed") {
+        // Artifacts declared "keep even on failure" (e.g. test results) are exactly what explains a failure.
+        try { artifacts = await this.#uploadArtifacts(g, workspace, logs, true); } catch (e) { logs.write(`::boundry-ci:: could not keep failure artifacts: ${(e as Error).message}\n`); }
       }
       logs.write(`::boundry-ci:: ${outcome}${reason ? ` (${reason})` : ""}\n`);
       await logs.flush();
@@ -130,13 +136,30 @@ export class WorkerAgent {
     await this.#call("POST", `/v1/attempts/${encodeURIComponent(g.attemptId)}/complete`, { leaseId: g.leaseId, result }, 10);
   }
 
-  async #uploadArtifacts(g: LeaseGrant, ws: string, logs: LogStreamer): Promise<NonNullable<AttemptResult["artifacts"]>> {
+  async #fetchInputs(g: LeaseGrant, ws: string, logs: LogStreamer): Promise<void> {
+    if (!g.inputs?.length) return;
+    mkdirSync(join(ws, "boundry-in"), { recursive: true });
+    for (const inp of g.inputs) {
+      if (!/^[A-Za-z0-9._-]+$/.test(inp.name)) throw new Error(`invalid input name ${inp.name}`);
+      const res = await fetch(`${this.o.controlUrl}/v1/attempts/${encodeURIComponent(g.attemptId)}/inputs/${encodeURIComponent(inp.name)}`, { headers: { authorization: `Bearer ${this.o.token}`, "x-lease-id": g.leaseId } });
+      if (!res.ok || !res.body) throw new Error(`input ${inp.name}: HTTP ${res.status}`);
+      const dest = join(ws, "boundry-in", inp.name);
+      await pipeline(Readable.fromWeb(res.body as any), createWriteStream(dest, { mode: 0o444 }));
+      const digest = await sha256File(dest);
+      if (digest !== inp.digest || statSync(dest).size !== inp.size) throw new Error(`input ${inp.name} failed verification (got sha256:${digest})`);
+      logs.write(`::boundry-ci:: input ${inp.name} sha256:${digest} from ${inp.fromJob} (${inp.fromAttempt}) verified\n`);
+    }
+    await run("chmod", ["-R", "a+rwX", ws]);
+  }
+
+  async #uploadArtifacts(g: LeaseGrant, ws: string, logs: LogStreamer, onlyAlways: boolean): Promise<NonNullable<AttemptResult["artifacts"]>> {
     const out: NonNullable<AttemptResult["artifacts"]> = [];
     for (const a of g.job.artifacts) {
+      if (onlyAlways && !a.always) continue;
       const p = safeJoin(ws, a.path);
       if (!p) throw new Error(`artifact path escapes workspace: ${a.path}`);
       let s;
-      try { s = statSync(p); } catch { throw new Error(`declared artifact missing: ${a.path}`); }
+      try { s = statSync(p); } catch { if (onlyAlways) continue; throw new Error(`declared artifact missing: ${a.path}`); }
       if (!s.isFile()) throw new Error(`artifact must be a regular file: ${a.path}`);
       const digest = await sha256File(p);
       const res = await fetch(`${this.o.controlUrl}/v1/artifacts/sha256/${digest}`, {

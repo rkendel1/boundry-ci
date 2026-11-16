@@ -57,7 +57,21 @@ export class FakeScm implements ScmAdapter {
   branches = new Map<string, string>(); // `${repo}#${branch}` -> sha
   statuses: { repository: string; sha: string; context: string; state: CommitState; description: string }[] = [];
   failStatus = false;
-  async readFile(repository: string, sha: string) { return this.files.get(`${repository}@${sha}`) ?? null; }
+  /** Whole repository trees for recipe-mode tests: `${repo}@${sha}` → path → content. */
+  trees = new Map<string, Record<string, string>>();
+  async readFile(repository: string, sha: string, path = ".boundry/ci.yaml") {
+    const tree = this.trees.get(`${repository}@${sha}`);
+    if (tree) return tree[path] ?? null;
+    return path === ".boundry/ci.yaml" ? this.files.get(`${repository}@${sha}`) ?? null : null;
+  }
+  async listFiles(repository: string, sha: string, dir: string) {
+    const tree = this.trees.get(`${repository}@${sha}`);
+    if (!tree) return null;
+    const prefix = dir === "." ? "" : `${dir}/`;
+    const names = new Set<string>();
+    for (const p of Object.keys(tree)) if (p.startsWith(prefix)) names.add(p.slice(prefix.length).split("/")[0]);
+    return names.size ? [...names].sort() : null;
+  }
   async resolveBranch(repository: string, branch: string) { return this.branches.get(`${repository}#${branch}`) ?? null; }
   async reportStatus(repository: string, sha: string, s: any) { if (this.failStatus) throw new Error("github down"); this.statuses.push({ repository, sha, ...s }); }
   async checkoutAuth(repository: string) { return { url: `https://github.com/${repository}.git` }; }

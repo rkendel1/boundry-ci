@@ -167,6 +167,16 @@ export function createControlServer(o: HttpOptions): Server {
           case "complete": return send(res, 200, await cp.complete(w.id, id, String(b.leaseId), b.result));
         }
       }
+      mm = m(/^\/v1\/attempts\/([^/]+)\/inputs\/([^/]+)$/);
+      if (req.method === "GET" && mm) {
+        const w = await worker(req);
+        const inp = await cp.inputFor(w.id, decodeURIComponent(mm[1]), String(req.headers["x-lease-id"] ?? ""), decodeURIComponent(mm[2]));
+        if (!cas.has(inp.digest)) throw new HttpError(404, "input bytes missing from the artifact store");
+        res.writeHead(200, { "content-type": "application/octet-stream", "content-length": inp.size, "x-sha256": inp.digest });
+        return void cas.open(inp.digest).pipe(res);
+      }
+      mm = m(/^\/v1\/runs\/([^/]+)\/evidence$/);
+      if (req.method === "GET" && mm) { operator(req); return send(res, 200, await cp.evidence(mm[1])); }
       mm = m(/^\/v1\/artifacts\/sha256\/([0-9a-f]{64})$/);
       if (req.method === "PUT" && mm) {
         const w = await worker(req);

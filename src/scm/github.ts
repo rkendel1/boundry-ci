@@ -109,6 +109,16 @@ export class GithubAdapter implements ScmAdapter {
     return res.text();
   }
 
+  async listFiles(repository: string, sha: string, dir: string): Promise<string[] | null> {
+    const path = dir === "." || dir === "" ? "" : `/${dir.split("/").map(encodeURIComponent).join("/")}`;
+    const res = await this.#gh(repository, `/contents${path}?ref=${encodeURIComponent(sha)}`);
+    if (res.status === 404) return null;
+    if (!res.ok) throw new Error(`GitHub listFiles ${repository}@${sha}:${dir}: HTTP ${res.status}`);
+    const body: any = await res.json();
+    if (!Array.isArray(body)) return null; // a file, not a directory
+    return body.map((e: any) => String(e.name)).sort();
+  }
+
   async resolveBranch(repository: string, branch: string): Promise<string | null> {
     const res = await this.#gh(repository, `/commits/${encodeURIComponent(branch)}`, { headers: { accept: "application/vnd.github.sha" } });
     if (res.status === 404 || res.status === 422) return null;

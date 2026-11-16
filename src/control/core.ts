@@ -8,7 +8,10 @@
 // Every lease creates a new, independently identified attempt record; attempts are never overwritten
 // once terminal.
 import { randomUUID } from "node:crypto";
-import { compile, SpecError, SPEC_PATH, type PlanJob } from "../spec/compile.ts";
+import { compile, parseSpec, SpecError, SPEC_PATH, type PlanJob, type Plan } from "../spec/compile.ts";
+import { compileRecipeSource, RecipeError, RECIPES_DIR, type CompiledRecipe } from "../recipes/compile.ts";
+import { explain, explainDiagnostics } from "../recipes/explain.ts";
+import type { FileSource } from "../recipes/facts.ts";
 import { sha256Hex, canonicalJson, stableId } from "../canonical.ts";
 import { FeltStore, PreconditionFailed, body, fenceOf, type Rec, type TxOp } from "../store/feltdb.ts";
 import type { ScmAdapter, SourceEvent, CommitState } from "../scm/types.ts";
@@ -78,6 +81,17 @@ export class Conflict extends Error {}
 export const INTERNAL_OWNER = "_boundry";
 export const isInternal = (repository: string) => repository.startsWith(`${INTERNAL_OWNER}/`);
 const pushOp = (ops: TxOp[], op: TxOp | null) => { if (op) ops.push(op); };
+/** Status context prefix stored on runs/jobs: null = do not report; records from before recipes report as "boundry-ci". */
+const prefixOf = (r: { statusPrefix?: unknown }): string | null => (r.statusPrefix === undefined ? "boundry-ci" : (r.statusPrefix as string | null));
+const jobCtx = (prefix: string | null, key: string) => (prefix === null ? null : `${prefix}/${key}`);
+interface Unit { runId: string; path: string; source: string; sourceDigest: string; plan: Plan | null; planDigest: string | null; error: string | null; recipe: CompiledRecipe | null; statusPrefix: string | null }
+
+/** Read repository files at one commit through the source adapter (with a per-intake cache). */
+function scmFiles(scm: ScmAdapter, repository: string, sha: string): FileSource {
+  const cache = new Map<string, Promise<unknown>>();
+  const memo = <T>(k: string, f: () => Promise<T>) => { if (!cache.has(k)) cache.set(k, f()); return cache.get(k) as Promise<T>; };
+  return { list: (dir) => memo(`l:${dir}`, () => scm.listFiles(repository, sha, dir)), read: (path) => memo(`r:${path}`, () => scm.readFile(repository, sha, path)) };
+}
 
 // FeltDB record ids are [A-Za-z0-9_-]{1,128}; natural keys are hashed into that alphabet.
 export const jobIdOf = (runId: string, key: string) => `${runId}-${sha256Hex(key).slice(0, 16)}`;
@@ -102,103 +116,140 @@ export class ControlPlane {
 
   // ───────────────────────── intake ─────────────────────────
 
-  /** Ingest a source event exactly once (duplicate deliveries return the original run). */
-  async intake(ev: SourceEvent, opts: { source?: string } = {}): Promise<{ runId: string | null; duplicate: boolean; state: string }> {
+  /**
+   * Ingest a source event exactly once (duplicate deliveries return the original runs). The repository's
+   * Boundry Recipes (.boundry/recipes/*.md) are compiled against project facts read at the commit; each recipe
+   * whose triggers match becomes one run. Repositories without recipes use the legacy .boundry/ci.yaml.
+   */
+  async intake(ev: SourceEvent, opts: { source?: string } = {}): Promise<{ runId: string | null; runIds: string[]; duplicate: boolean; state: string }> {
     const eventKey = `${ev.provider}:${ev.deliveryId}`;
     const eventId = eventIdOf(eventKey);
     const existing = await this.store.get(C.events, eventId);
-    if (existing) return { runId: (existing.runId as string) ?? null, duplicate: true, state: String(existing.outcome) };
+    if (existing) return { runId: (existing.runId as string) ?? null, runIds: (existing.runIds as string[]) ?? [], duplicate: true, state: String(existing.outcome) };
+    if (isInternal(ev.repository) && opts.source === undefined) throw new AuthorityError("internal repositories require a supplied pipeline source");
 
     const now = this.now();
-    const runId = stableId("run", eventKey);
-    if (isInternal(ev.repository) && opts.source === undefined) throw new AuthorityError("internal repositories require a supplied pipeline source");
-    const source = opts.source ?? (await this.scm.readFile(ev.repository, ev.sha, SPEC_PATH));
     const ctx = { repository: ev.repository, kind: ev.kind, ref: ev.ref, sha: ev.sha, trusted: ev.trusted, baseBranch: ev.baseBranch, cron: ev.cron };
+    const units: Unit[] = [];
+    const recipeFiles = opts.source === undefined ? await this.#recipeFiles(ev) : null;
+    if (recipeFiles && recipeFiles.length) {
+      const files = scmFiles(this.scm, ev.repository, ev.sha);
+      for (const name of recipeFiles) {
+        const path = `${RECIPES_DIR}/${name}`;
+        const source = (await files.read(path)) ?? "";
+        const runId = stableId("run", eventKey, path);
+        try {
+          const c = await compileRecipeSource(source, path, files, ctx);
+          units.push({ runId, path, source, sourceDigest: c.sourceDigest, plan: c.plan, planDigest: c.planDigest, error: null, recipe: c, statusPrefix: c.report && !isInternal(ev.repository) ? `boundry/${c.plan.recipe!.slug}` : null });
+        } catch (e) {
+          if (!(e instanceof RecipeError)) throw e;
+          // A recipe that cannot compile is recorded as a failed run with its diagnostics, and reported.
+          units.push({ runId, path, source, sourceDigest: sha256Hex(source), plan: null, planDigest: null, error: explainDiagnostics(path, e.diagnostics), recipe: null, statusPrefix: `boundry/${name.replace(/\.md$/, "").toLowerCase().replace(/[^a-z0-9]+/g, "-")}` });
+        }
+      }
+    } else {
+      const source = opts.source ?? (await this.scm.readFile(ev.repository, ev.sha, SPEC_PATH));
+      if (source !== null) {
+        const runId = stableId("run", eventKey);
+        try {
+          const { plan, planDigest } = compile(source, ctx);
+          units.push({ runId, path: SPEC_PATH, source, sourceDigest: plan.sourceDigest, plan, planDigest, error: null, recipe: null, statusPrefix: isInternal(ev.repository) ? null : "boundry-ci" });
+        } catch (e) {
+          if (!(e instanceof SpecError)) throw e;
+          units.push({ runId, path: SPEC_PATH, source, sourceDigest: sha256Hex(source), plan: null, planDigest: null, error: e.message, recipe: null, statusPrefix: "boundry-ci" });
+        }
+      }
+    }
 
-    const ops: TxOp[] = [];
-    const eventRec = { eventKey, provider: ev.provider, deliveryId: ev.deliveryId, kind: ev.kind, repository: ev.repository, ref: ev.ref, sha: ev.sha, trusted: ev.trusted, actor: ev.actor ?? null, receivedAt: now, runId: null as string | null, outcome: "" };
+    const live = units.filter((u) => u.error || (u.plan && u.plan.jobs.length));
+    const outcome = !units.length ? "no-pipeline" : !live.length ? "no-matching-jobs" : live.every((u) => u.error) ? "invalid-pipeline" : "run-created";
+    const ops: TxOp[] = [{ collection: C.events, id: eventId, requireAbsent: true, value: {
+      eventKey, provider: ev.provider, deliveryId: ev.deliveryId, kind: ev.kind, repository: ev.repository, ref: ev.ref, sha: ev.sha, trusted: ev.trusted,
+      actor: ev.actor ?? null, receivedAt: now, runId: live[0]?.runId ?? null, runIds: live.map((u) => u.runId), outcome,
+    } }];
     const baseRun = {
-      repository: ev.repository, eventId, kind: ev.kind, ref: ev.ref, sha: ev.sha, trusted: ev.trusted,
+      repository: ev.repository, eventId, kind: ev.kind, ref: ev.ref, sha: ev.sha, trusted: ev.trusted, actor: ev.actor ?? null,
       createdAt: now, finishedAt: null, cancelRequested: false, concurrencyGroup: null, downstream: [] as unknown[],
     };
-
-    if (source === null) {
-      eventRec.outcome = "no-pipeline";
-      ops.push({ collection: C.events, id: eventId, requireAbsent: true, value: eventRec });
-      return this.#commitIntake(eventId, ops, null, "no-pipeline");
-    }
-
-    let compiled;
-    try {
-      compiled = compile(source, ctx);
-    } catch (e) {
-      if (!(e instanceof SpecError)) throw e;
-      // An invalid definition is recorded as a failed run with evidence, and reported.
-      const sourceDigest = sha256Hex(source);
-      eventRec.runId = runId; eventRec.outcome = "invalid-pipeline";
-      ops.push({ collection: C.events, id: eventId, requireAbsent: true, value: eventRec });
-      ops.push(...(await this.#defOps(sourceDigest, ev.repository, source, now)));
-      ops.push({ collection: C.runs, id: runId, requireAbsent: true, value: { ...baseRun, pipeline: ev.repository, sourceDigest, planDigest: null, state: "failed", finishedAt: now, reason: e.message } });
-      pushOp(ops, this.#statusOp(runId, ev.repository, ev.sha, "boundry-ci", "failure", "Invalid .boundry/ci.yaml", `${runId}:final`));
-      return this.#commitIntake(eventId, ops, runId, "invalid-pipeline");
-    }
-
-    const { plan, planDigest } = compiled;
-    eventRec.runId = plan.jobs.length ? runId : null;
-    eventRec.outcome = plan.jobs.length ? "run-created" : "no-matching-jobs";
-    ops.push({ collection: C.events, id: eventId, requireAbsent: true, value: eventRec });
-    if (!plan.jobs.length) return this.#commitIntake(eventId, ops, null, "no-matching-jobs");
-
-    ops.push(...(await this.#defOps(plan.sourceDigest, ev.repository, source, now)));
-    ops.push({
-      collection: C.runs, id: runId, requireAbsent: true,
-      value: { ...baseRun, pipeline: plan.pipeline, sourceDigest: plan.sourceDigest, planDigest, state: "running", reason: null, concurrencyGroup: plan.concurrency?.group ?? null, cancelInProgress: plan.concurrency?.cancelInProgress ?? false, downstream: plan.downstream },
-    });
-    for (const pj of plan.jobs) {
-      let state: JobState = pj.needs.length ? "waiting" : pj.approval.required ? "awaiting_approval" : "queued";
-      let reason: string | null = null;
-      // Authority: an untrusted source can never reach release/deploy capability or secrets.
-      if (!ev.trusted && (pj.permissions.release || pj.permissions.deploy)) { state = "failed"; reason = "untrusted source cannot run release/deploy jobs"; }
-      else if (!ev.trusted && pj.secrets.length) { state = "failed"; reason = "untrusted source cannot receive secrets"; }
-      ops.push({ collection: C.jobs, id: jobIdOf(runId, pj.key), requireAbsent: true, value: {
-        runId, key: pj.key, state, attempts: 0, spec: pj, trusted: ev.trusted, repository: ev.repository, sha: ev.sha,
-        queuedAt: state === "queued" ? now : null, leaseId: null, leaseExpiresAt: null, workerId: null, attemptId: null,
-        startedAt: null, finishedAt: state === "failed" ? now : null, reason, cancelRequested: false,
+    const defsAdded = new Set<string>();
+    for (const u of live) {
+      if (!defsAdded.has(u.sourceDigest)) { ops.push(...(await this.#defOps(u.sourceDigest, ev.repository, u.source, now, u.path))); defsAdded.add(u.sourceDigest); }
+      const recipeMeta = u.recipe ? {
+        recipe: { path: u.path, title: u.recipe.title, sourceDigest: u.recipe.sourceDigest, compiler: u.recipe.compiler, catalog: u.recipe.catalog, capabilities: u.recipe.capabilities, facts: u.recipe.facts, factsDigest: u.recipe.factsDigest, definitionDigest: u.recipe.definitionDigest },
+        explanation: explain(u.recipe),
+      } : {};
+      if (u.error) {
+        ops.push({ collection: C.runs, id: u.runId, requireAbsent: true, value: { ...baseRun, pipeline: u.path, definitionPath: u.path, sourceDigest: u.sourceDigest, planDigest: null, state: "failed", finishedAt: now, reason: u.error.slice(0, 4000), statusPrefix: u.statusPrefix } });
+        pushOp(ops, this.#statusOp(u.runId, ev.repository, ev.sha, u.statusPrefix, "failure", u.recipe === null && u.path !== SPEC_PATH ? "Recipe can't run yet — see the run's diagnostics" : "Invalid .boundry/ci.yaml", `${u.runId}:final`));
+        continue;
+      }
+      const plan = u.plan!;
+      ops.push({ collection: C.runs, id: u.runId, requireAbsent: true, value: {
+        ...baseRun, pipeline: plan.pipeline, definitionPath: u.path, sourceDigest: plan.sourceDigest, planDigest: u.planDigest, state: "running", reason: null,
+        concurrencyGroup: plan.concurrency?.group ?? null, cancelInProgress: plan.concurrency?.cancelInProgress ?? false, downstream: plan.downstream,
+        statusPrefix: u.statusPrefix, ...recipeMeta,
       } });
-      pushOp(ops, state === "failed"
-        ? this.#statusOp(runId, ev.repository, ev.sha, `boundry-ci/${pj.key}`, "failure", reason!, `${jobIdOf(runId, pj.key)}:final`)
-        : this.#statusOp(runId, ev.repository, ev.sha, `boundry-ci/${pj.key}`, "pending", "Queued", `${jobIdOf(runId, pj.key)}:pending`));
+      for (const pj of plan.jobs) {
+        let state: JobState = pj.needs.length ? "waiting" : pj.approval.required ? "awaiting_approval" : "queued";
+        let reason: string | null = null;
+        // Authority: an untrusted source can never reach release/deploy capability or secrets.
+        if (!ev.trusted && (pj.permissions.release || pj.permissions.deploy)) { state = "failed"; reason = "untrusted source cannot run release/deploy jobs"; }
+        else if (!ev.trusted && pj.secrets.length) { state = "failed"; reason = "untrusted source cannot receive secrets"; }
+        ops.push({ collection: C.jobs, id: jobIdOf(u.runId, pj.key), requireAbsent: true, value: {
+          runId: u.runId, key: pj.key, state, attempts: 0, spec: pj, trusted: ev.trusted, repository: ev.repository, sha: ev.sha,
+          queuedAt: state === "queued" ? now : null, leaseId: null, leaseExpiresAt: null, workerId: null, attemptId: null,
+          startedAt: null, finishedAt: state === "failed" ? now : null, reason, cancelRequested: false, statusPrefix: u.statusPrefix,
+        } });
+        const jc = jobCtx(u.statusPrefix, pj.key);
+        pushOp(ops, state === "failed"
+          ? this.#statusOp(u.runId, ev.repository, ev.sha, jc, "failure", reason!, `${jobIdOf(u.runId, pj.key)}:final`)
+          : this.#statusOp(u.runId, ev.repository, ev.sha, jc, "pending", "Queued", `${jobIdOf(u.runId, pj.key)}:pending`));
+      }
+      pushOp(ops, this.#statusOp(u.runId, ev.repository, ev.sha, u.statusPrefix, "pending", plan.recipe ? plan.pipeline.slice(0, 120) : `Run ${u.runId}`, `${u.runId}:pending`));
     }
-    pushOp(ops, this.#statusOp(runId, ev.repository, ev.sha, "boundry-ci", "pending", `Run ${runId}`, `${runId}:pending`));
-    const res = await this.#commitIntake(eventId, ops, runId, "run-created");
+    const res = await this.#commitIntake(eventId, ops, live.map((u) => u.runId), outcome);
     if (!res.duplicate) {
-      if (plan.concurrency?.cancelInProgress) await this.#supersede(runId, plan.concurrency.group, now);
-      await this.advance(runId); // settles jobs that failed authority checks at intake
-      if (ev.kind === "push" && plan.context.ref.startsWith("refs/heads/")) await this.#registerSchedules(ev, source);
+      for (const u of live) {
+        if (!u.plan) continue;
+        if (u.plan.concurrency?.cancelInProgress) await this.#supersede(u.runId, u.plan.concurrency.group, now);
+        await this.advance(u.runId); // settles jobs that failed authority checks at intake
+      }
+      if (ev.kind === "push" && ev.ref.startsWith("refs/heads/")) {
+        for (const u of units) {
+          if (u.recipe) await this.#registerSchedules(ev, u.recipe.triggers.filter((t) => t.kind === "schedule").map((t) => ({ cron: t.cron!, branch: t.scheduleBranch! })));
+          else if (u.plan && !u.error) { try { await this.#registerSchedules(ev, (parseSpec(u.source).on?.schedule ?? []).map((x: any) => ({ cron: x.cron, branch: x.branch ?? "main" }))); } catch { /* invalid */ } }
+        }
+      }
     }
     return res;
   }
 
-  async #commitIntake(eventId: string, ops: TxOp[], runId: string | null, outcome: string) {
+  async #recipeFiles(ev: SourceEvent): Promise<string[] | null> {
+    if (isInternal(ev.repository)) return null;
+    const names = await this.scm.listFiles(ev.repository, ev.sha, RECIPES_DIR);
+    return names ? names.filter((n) => /^[A-Za-z0-9][A-Za-z0-9._-]*\.md$/.test(n) && n.toLowerCase() !== "readme.md").sort() : null;
+  }
+
+  async #commitIntake(eventId: string, ops: TxOp[], runIds: string[], outcome: string) {
     try {
       const tx = await this.store.transact(`intake:${sha256Hex(canonicalJson(ops))}`, ops);
-      return { runId, duplicate: tx.duplicate, state: outcome };
+      return { runId: runIds[0] ?? null, runIds, duplicate: tx.duplicate, state: outcome };
     } catch (e) {
       // A concurrent delivery of the same event won the race: report as duplicate.
       const ev = await this.store.get(C.events, eventId);
-      if (ev) return { runId: (ev.runId as string) ?? null, duplicate: true, state: String(ev.outcome) };
+      if (ev) return { runId: (ev.runId as string) ?? null, runIds: (ev.runIds as string[]) ?? [], duplicate: true, state: String(ev.outcome) };
       throw e;
     }
   }
 
-  async #defOps(digest: string, repository: string, source: string, now: number): Promise<TxOp[]> {
+  async #defOps(digest: string, repository: string, source: string, now: number, path = SPEC_PATH): Promise<TxOp[]> {
     if (await this.store.get(C.defs, defIdOf(digest))) return [];
-    return [{ collection: C.defs, id: defIdOf(digest), requireAbsent: true, value: { repository, path: SPEC_PATH, source, recordedAt: now } }];
+    return [{ collection: C.defs, id: defIdOf(digest), requireAbsent: true, value: { repository, path, source, recordedAt: now } }];
   }
 
   /** Commit-status outbox entry; internal runs (canaries) never report to a source provider. */
-  #statusOp(runId: string, repository: string, sha: string, context: string, state: CommitState, description: string, key: string): TxOp | null {
-    if (isInternal(repository)) return null;
+  #statusOp(runId: string, repository: string, sha: string, context: string | null, state: CommitState, description: string, key: string): TxOp | null {
+    if (isInternal(repository) || context === null) return null;
     return { collection: C.outbox, id: stableId("ob", key), requireAbsent: true, value: {
       kind: "scm_status", runId, repository, sha, context, state, description: description.slice(0, 140),
       targetUrl: this.publicUrl ? `${this.publicUrl}/v1/runs/${runId}` : null, delivered: false, attempts: 0, createdAt: this.now(),
@@ -242,12 +293,12 @@ export class ControlPlane {
       for (const [key, patch] of changed) {
         const j = byKey.get(key)!;
         ops.push({ collection: C.jobs, id: j.id, expectedVersionToken: fenceOf(j), value: { ...body(j), ...patch } });
-        if (patch.state && TERMINAL.has(patch.state)) pushOp(ops, this.#statusOp(runId, run.repository, run.sha, `boundry-ci/${key}`, "error", patch.reason ?? patch.state, `${j.id}:final`));
+        if (patch.state && TERMINAL.has(patch.state)) pushOp(ops, this.#statusOp(runId, run.repository, run.sha, jobCtx(prefixOf(j), key), "error", patch.reason ?? patch.state, `${j.id}:final`));
       }
       if (allTerminal && run.state === "running") {
         const runState = finalStates.includes("failed") ? "failed" : finalStates.includes("cancelled") ? "cancelled" : finalStates.every((s) => s === "succeeded") ? "succeeded" : "failed";
         ops.push({ collection: C.runs, id: runId, expectedVersionToken: fenceOf(run), value: { ...body(run), state: runState, finishedAt: now } });
-        pushOp(ops, this.#statusOp(runId, run.repository, run.sha, "boundry-ci", runState === "succeeded" ? "success" : runState === "cancelled" ? "error" : "failure", `Run ${runState}`, `${runId}:final`));
+        pushOp(ops, this.#statusOp(runId, run.repository, run.sha, prefixOf(run), runState === "succeeded" ? "success" : runState === "cancelled" ? "error" : "failure", `Run ${runState}`, `${runId}:final`));
       }
       if (!ops.length) return;
       try {
@@ -334,12 +385,16 @@ export class ControlPlane {
       const attemptId = attemptIdOf(j.id, n);
       const leaseId = randomUUID();
       const now = this.now();
+      // Inputs are resolved to exact digests before the lease and recorded on the attempt as evidence.
+      let inputs: AttemptInput[];
+      try { inputs = await this.#resolveInputs(j); }
+      catch (e) { await this.#failUnleasable(j, (e as Error).message); continue; }
       try {
         await this.store.transact(`lease:${leaseId}`, [
           { collection: C.jobs, id: j.id, expectedVersionToken: fenceOf(j), value: { ...body(j), state: "leased", attempts: n, leaseId, leaseExpiresAt: now + this.leaseMs, workerId: w.id, attemptId } },
           { collection: C.attempts, id: attemptId, requireAbsent: true, value: {
             jobId: j.id, runId: j.runId, n, workerId: w.id, leaseId, state: "leased", leasedAt: now, startedAt: null, finishedAt: null,
-            exitCode: null, reason: null, resultDigest: null, artifacts: [], image: j.spec.image, logChunks: 0,
+            exitCode: null, reason: null, resultDigest: null, artifacts: [], image: j.spec.image, imageDigest: j.spec.imageDigest ?? null, inputs, logChunks: 0,
           } },
         ]);
       } catch (e) {
@@ -355,10 +410,64 @@ export class ControlPlane {
       const checkout = isInternal(j.repository) ? null : await this.scm.checkoutAuth(j.repository);
       return {
         attemptId, leaseId, jobId: j.id, runId: j.runId, leaseMs: this.leaseMs, job: j.spec, repository: j.repository, sha: j.sha,
-        trusted: j.trusted, checkout, secrets, provenance: { sourceDigest: run?.sourceDigest ?? null, planDigest: run?.planDigest ?? null, ref: run?.ref ?? null },
+        trusted: j.trusted, checkout, secrets, inputs, provenance: { sourceDigest: run?.sourceDigest ?? null, planDigest: run?.planDigest ?? null, ref: run?.ref ?? null },
       };
     }
     return null;
+  }
+
+  async #resolveInputs(j: JobRec): Promise<AttemptInput[]> {
+    const out: AttemptInput[] = [];
+    for (const inp of j.spec.inputs ?? []) {
+      const dep = await this.store.get<JobRec>(C.jobs, jobIdOf(j.runId, inp.job));
+      if (!dep || dep.state !== "succeeded" || !dep.attemptId) throw new Error(`input ${inp.artifact}: job ${inp.job} has not succeeded`);
+      const att = await this.store.get<AttemptRec>(C.attempts, dep.attemptId);
+      const a = att?.artifacts.find((x) => x.name === inp.artifact);
+      if (!a) throw new Error(`input ${inp.artifact}: not produced by ${inp.job}`);
+      if (!(await this.store.get(C.artifacts, artifactIdOf(a.digest)))) throw new Error(`input ${inp.artifact}: sha256:${a.digest} is not in the artifact store`);
+      out.push({ name: a.name, digest: a.digest, size: a.size, fromJob: inp.job, fromAttempt: dep.attemptId });
+    }
+    return out;
+  }
+
+  /** A job whose inputs cannot be resolved can never run correctly: fail it instead of leaving it queued. */
+  async #failUnleasable(j: JobRec, reason: string) {
+    try {
+      await this.store.transact(`unleasable:${j.id}:${j.__version}`, [{ collection: C.jobs, id: j.id, expectedVersionToken: fenceOf(j), value: { ...body(j), state: "failed", finishedAt: this.now(), reason } }]);
+      await this.advance(j.runId);
+    } catch (e) { if (!(e instanceof PreconditionFailed)) throw e; }
+  }
+
+  /** The digest of an input the worker's current lease is entitled to read. */
+  async inputFor(workerId: string, attemptId: string, leaseId: string, name: string): Promise<AttemptInput> {
+    const cur = await this.#currentLease(attemptId, leaseId, workerId);
+    if (!cur) throw new AuthorityError("lease is not current");
+    const inp = ((cur.attempt as any).inputs as AttemptInput[] | undefined)?.find((i) => i.name === name);
+    if (!inp) throw new NotFound(`attempt has no input ${name}`);
+    return inp;
+  }
+
+  /** Everything recorded about a run: intent, compiled plan, trigger, attempts, artifacts, approvals, statuses. */
+  async evidence(runId: string): Promise<Record<string, unknown>> {
+    const run = await this.store.get<RunRec>(C.runs, runId);
+    if (!run) throw new NotFound(runId);
+    const event = await this.store.get(C.events, run.eventId);
+    const def = run.sourceDigest ? await this.store.get(C.defs, defIdOf(run.sourceDigest)) : null;
+    const jobs = await this.store.query<JobRec>(C.jobs, [{ field: "runId", eq: runId }], { limit: 1000 });
+    const attempts = await this.store.query<AttemptRec>(C.attempts, [{ field: "runId", eq: runId }], { limit: 1000 });
+    const strip = <T extends Rec>(r: T) => body(r);
+    return {
+      run: strip(run),
+      trigger: event ? { kind: event.kind, ref: event.ref, sha: event.sha, actor: event.actor, provider: event.provider, deliveryId: event.deliveryId, receivedAt: event.receivedAt, trusted: event.trusted } : null,
+      definition: def ? { path: def.path, sha256: run.sourceDigest, source: def.source } : null,
+      jobs: jobs.sort((a, b) => (a.key < b.key ? -1 : 1)).map((j) => ({
+        key: j.key, name: j.spec.name, state: j.state, reason: j.reason, capabilities: j.spec.capabilities ?? [], image: j.spec.image, imageDigest: j.spec.imageDigest ?? null,
+        needs: j.spec.needs, approval: j.spec.approval, permissions: j.spec.permissions,
+        attempts: attempts.filter((a) => a.jobId === j.id).sort((a, b) => a.n - b.n).map((a) => ({ id: a.id, n: a.n, worker: a.workerId, state: a.state, exitCode: a.exitCode, reason: a.reason, startedAt: a.startedAt, finishedAt: a.finishedAt, inputs: (a as any).inputs ?? [], artifacts: a.artifacts, logChunks: a.logChunks })),
+      })),
+      approvals: (await this.store.query(C.approvals, [{ field: "runId", eq: runId }], { limit: 100 })).map(strip),
+      statuses: (await this.store.query(C.outbox, [{ field: "runId", eq: runId }], { limit: 1000, orderBy: [{ field: "createdAt", direction: "asc" }] })).map((o: any) => ({ context: o.context, state: o.state, delivered: o.delivered, attempts: o.attempts, lastError: o.lastError ?? null })),
+    };
   }
 
   async #currentLease(attemptId: string, leaseId: string, workerId: string): Promise<{ job: JobRec; attempt: AttemptRec } | null> {
@@ -471,7 +580,7 @@ export class ControlPlane {
         }
         if (TERMINAL.has(jobState)) {
           const st: CommitState = jobState === "succeeded" ? "success" : jobState === "cancelled" ? "error" : "failure";
-          pushOp(ops, this.#statusOp(job.runId, job.repository, job.sha, `boundry-ci/${job.key}`, st, `${jobState}${reason ? `: ${reason}` : ""}`, `${job.id}:final`));
+          pushOp(ops, this.#statusOp(job.runId, job.repository, job.sha, jobCtx(prefixOf(job), job.key), st, `${jobState}${reason ? `: ${reason}` : ""}`, `${job.id}:final`));
         }
       }
       let duplicate = false;
@@ -517,7 +626,7 @@ export class ControlPlane {
         finishedAt: TERMINAL.has(next) ? now : null, reason: next === "queued" ? `retry: ${reason}` : reason,
       } }];
       if (attempt && !attempt.resultDigest) ops.push({ collection: C.attempts, id: attempt.id, expectedVersionToken: fenceOf(attempt), value: { ...body(attempt), state: overTime ? "timed_out" : "lost", finishedAt: now, reason } });
-      if (TERMINAL.has(next)) pushOp(ops, this.#statusOp(j.runId, j.repository, j.sha, `boundry-ci/${j.key}`, next === "cancelled" ? "error" : "failure", reason, `${j.id}:final`));
+      if (TERMINAL.has(next)) pushOp(ops, this.#statusOp(j.runId, j.repository, j.sha, jobCtx(prefixOf(j), j.key), next === "cancelled" ? "error" : "failure", reason, `${j.id}:final`));
       try {
         await this.store.transact(`reap:${j.id}:${j.__version}`, ops);
         overTime ? timedOut++ : expired++;
@@ -618,12 +727,10 @@ export class ControlPlane {
 
   // ───────────────────────── scheduled pipelines ─────────────────────────
 
-  async #registerSchedules(ev: SourceEvent, source: string) {
-    let spec: any;
-    try { spec = (await import("../spec/compile.ts")).parseSpec(source); } catch { return; }
+  async #registerSchedules(ev: SourceEvent, schedules: { cron: string; branch: string }[]) {
     const branch = ev.ref.slice("refs/heads/".length);
-    for (const s of spec.on?.schedule ?? []) {
-      if ((s.branch ?? "main") !== branch) continue;
+    for (const s of schedules) {
+      if (s.branch !== branch) continue;
       const id = stableId("sched", ev.repository, s.cron, branch);
       if (await this.store.get(C.schedules, id)) continue;
       await this.store.transact(`sched:${id}`, [{ collection: C.schedules, id, requireAbsent: true, value: {
@@ -670,8 +777,9 @@ export class ControlPlane {
 export interface LeaseGrant {
   attemptId: string; leaseId: string; jobId: string; runId: string; leaseMs: number; job: PlanJob;
   repository: string; sha: string; trusted: boolean; checkout: { url: string; header?: string } | null;
-  secrets: Record<string, string>; provenance: { sourceDigest: string | null; planDigest: string | null; ref: string | null };
+  secrets: Record<string, string>; inputs: AttemptInput[]; provenance: { sourceDigest: string | null; planDigest: string | null; ref: string | null };
 }
+export interface AttemptInput { name: string; digest: string; size: number; fromJob: string; fromAttempt: string }
 
 export interface AttemptResult {
   outcome: "succeeded" | "failed" | "cancelled";
