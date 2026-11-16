@@ -75,12 +75,12 @@
 | appport-services | ci.yml | test | push(branches=main), pull_request |  | "ubuntu-24.04" | 1 | linux-browser | node, playwright |  |  |  |
 | appworks | ci.yml | check | push(branches=main), pull_request |  | "ubuntu-latest" | 1 | linux-small | node, pnpm |  |  |  |
 | appworks | ci.yml | memos | push(branches=main), pull_request |  | "ubuntu-latest" | 1 | linux-small | go, node, pnpm |  |  |  |
-| authboundry | architecture-invariants.yml | verify | pull_request, push |  | "ubuntu-latest" | 1 | linux-build | go, node, rust |  |  |  |
+| authboundry | architecture-invariants.yml | verify | pull_request, push |  | "ubuntu-latest" | 1 | linux-build | node, rust |  |  |  |
 | authboundry | cli-smoke.yml | cli-smoke | pull_request, push |  | "${{ matrix.os }}" | 4 | linux-arm64, macos-arm64, macos-x64 | node |  |  |  |
 | authboundry | deploy-fly.yml | retired | workflow_dispatch |  | "ubuntu-latest" | 1 | deploy, linux-small |  |  |  |  |
-| authboundry | portal.yml | portal | push(branches=main,paths), pull_request(paths) |  | "ubuntu-22.04" | 1 | linux-browser, linux-build | go, node, playwright, rust |  |  |  |
+| authboundry | portal.yml | portal | push(branches=main,paths), pull_request(paths) |  | "ubuntu-22.04" | 1 | linux-browser, linux-build | node, playwright, rust |  |  |  |
 | authboundry | release.yml | validate | workflow_dispatch |  | "ubuntu-latest" | 1 | linux-small | node |  |  |  |
-| authboundry | release.yml | test | workflow_dispatch | validate | "ubuntu-latest" | 1 | linux-build | go, node, rust |  |  |  |
+| authboundry | release.yml | test | workflow_dispatch | validate | "ubuntu-latest" | 1 | linux-build | node, rust |  |  |  |
 | authboundry | release.yml | build-native | workflow_dispatch | validate | "${{ matrix.os }}" | 4 | linux-arm64, linux-build, macos-arm64, macos-x64 | node, rust |  |  | yes |
 | authboundry | release.yml | publish | workflow_dispatch | validate, test, build-native | "ubuntu-latest" | 1 | linux-small, release | node | GITHUB_TOKEN, NPM_TOKEN | github-releases, npm | yes |
 | boundry | ci.yml | build | pull_request, push(branches=main) |  | "ubuntu-latest" | 1 | linux-small | node |  |  |  |
@@ -91,29 +91,29 @@
 | boundry-maint | scan.yml | scan | push(branches=main,paths), repository_dispatch(types=scan\|package-released\|project-pushed\|maintenance-started), workflow_dispatch, workflow_call |  | "ubuntu-latest" | 1 | linux-small | node | MAINTENANCE_READ_TOKEN |  |  |
 | boundry-maint | scan.yml | publish → ./.github/workflows/publish-pages.yml | push(branches=main,paths), repository_dispatch(types=scan\|package-released\|project-pushed\|maintenance-started), workflow_dispatch, workflow_call | scan | null | 1 | linux-small |  |  | github-pages |  |
 | boundry-maint | scheduled.yml | scan → ./.github/workflows/scan.yml | schedule(23 7 * * *) |  | null | 1 | linux-small |  |  | github-pages |  |
-| chip-rs | laya.yml | laya | workflow_dispatch, pull_request(paths) |  | "ubuntu-latest" | 1 | linux-build | go, rust |  |  |  |
-| chip-rs | live-compute.yml | live-compute | workflow_dispatch |  | "ubuntu-latest" | 1 | linux-build | go, rust |  |  |  |
-| chip-rs | live-model.yml | live-model | workflow_dispatch |  | "ubuntu-latest" | 1 | linux-build | go, rust | CHIP_API_KEY, CHIP_ENDPOINT, CHIP_MODEL, CHIP_PROVIDER |  |  |
-| chip-rs | local-ml.yml | local-ml | workflow_dispatch, pull_request(paths) |  | "ubuntu-latest" | 1 | linux-build | go, rust |  |  |  |
-| chip-rs | release.yml | release | push(tags=chip-v*) |  | "ubuntu-latest" | 1 | linux-build, release | go, rust, wasm |  | github-releases |  |
-| chip-rs | rust.yml | ci | push(branches=main), pull_request(branches=main), workflow_dispatch |  | "ubuntu-latest" | 1 | linux-build, release | go, python, rust, wasm |  |  |  |
-| chip-rs | rust.yml | product | push(branches=main), pull_request(branches=main), workflow_dispatch | ci | "ubuntu-latest" | 1 | linux-build | go, rust |  |  | yes |
-| chip-rs | rust.yml | session-memory-experiment | push(branches=main), pull_request(branches=main), workflow_dispatch |  | "ubuntu-latest" | 1 | linux-build | go, rust | FLOW_DB_TOKEN |  |  |
-| compute | chip-fx-integration.yml | harness | workflow_dispatch, pull_request(paths), push(branches=main,paths) |  | "ubuntu-latest" | 1 | linux-build | go, rust, wasm |  |  |  |
-| compute | cloudflare-live.yml | live | workflow_dispatch |  | "ubuntu-latest" | 1 | linux-build | go, rust | CLOUDFLARE_API_TOKEN, COMPUTE_CLOUDFLARE_LIVE_ACCOUNT_ID | cloudflare |  |
+| chip-rs | laya.yml | laya | workflow_dispatch, pull_request(paths) |  | "ubuntu-latest" | 1 | linux-build | rust |  |  |  |
+| chip-rs | live-compute.yml | live-compute | workflow_dispatch |  | "ubuntu-latest" | 1 | linux-build | rust |  |  |  |
+| chip-rs | live-model.yml | live-model | workflow_dispatch |  | "ubuntu-latest" | 1 | linux-build | rust | CHIP_API_KEY, CHIP_ENDPOINT, CHIP_MODEL, CHIP_PROVIDER |  |  |
+| chip-rs | local-ml.yml | local-ml | workflow_dispatch, pull_request(paths) |  | "ubuntu-latest" | 1 | linux-build | rust |  |  |  |
+| chip-rs | release.yml | release | push(tags=chip-v*) |  | "ubuntu-latest" | 1 | linux-build, release | rust, wasm |  | github-releases |  |
+| chip-rs | rust.yml | ci | push(branches=main), pull_request(branches=main), workflow_dispatch |  | "ubuntu-latest" | 1 | linux-build, release | python, rust, wasm |  |  |  |
+| chip-rs | rust.yml | product | push(branches=main), pull_request(branches=main), workflow_dispatch | ci | "ubuntu-latest" | 1 | linux-build | rust |  |  | yes |
+| chip-rs | rust.yml | session-memory-experiment | push(branches=main), pull_request(branches=main), workflow_dispatch |  | "ubuntu-latest" | 1 | linux-build | rust | FLOW_DB_TOKEN |  |  |
+| compute | chip-fx-integration.yml | harness | workflow_dispatch, pull_request(paths), push(branches=main,paths) |  | "ubuntu-latest" | 1 | linux-build | rust, wasm |  |  |  |
+| compute | cloudflare-live.yml | live | workflow_dispatch |  | "ubuntu-latest" | 1 | linux-build | rust | CLOUDFLARE_API_TOKEN, COMPUTE_CLOUDFLARE_LIVE_ACCOUNT_ID | cloudflare |  |
 | compute | configured-compatibility.yml | published-registry-stack | pull_request(paths), push(branches=main,paths), workflow_dispatch, schedule(17 7 * * 1) |  | "ubuntu-latest" | 1 | linux-small | node |  | npm | yes |
-| compute | distribution-certification.yml | certify-linux-x86_64 | workflow_call, workflow_dispatch, push(tags=v*) |  | "ubuntu-22.04" | 1 | linux-build | go, node, rust, wasm |  | cloudflare | yes |
-| compute | distribution-certification.yml | validate-macos-aarch64-preview | workflow_call, workflow_dispatch, push(tags=v*) |  | "macos-15" | 1 | linux-build, macos-arm64 | go, node, rust |  | cloudflare, homebrew | yes |
+| compute | distribution-certification.yml | certify-linux-x86_64 | workflow_call, workflow_dispatch, push(tags=v*) |  | "ubuntu-22.04" | 1 | linux-build | node, rust, wasm |  | cloudflare | yes |
+| compute | distribution-certification.yml | validate-macos-aarch64-preview | workflow_call, workflow_dispatch, push(tags=v*) |  | "macos-15" | 1 | linux-build, macos-arm64 | node, rust |  | cloudflare, homebrew | yes |
 | compute | distribution-certification.yml | publish-release | workflow_call, workflow_dispatch, push(tags=v*) | certify-linux-x86_64, validate-macos-aarch64-preview | "ubuntu-latest" | 1 | linux-small, release |  | GITHUB_TOKEN, HOMEBREW_TAP_TOKEN | github-releases, homebrew |  |
-| compute | feltdb-consumer.yml | certify | workflow_dispatch, pull_request, push(branches=main) |  | "ubuntu-latest" | 1 | linux-build | go, node, rust |  |  |  |
+| compute | feltdb-consumer.yml | certify | workflow_dispatch, pull_request, push(branches=main) |  | "ubuntu-latest" | 1 | linux-build | node, rust |  |  |  |
 | compute | live-tap.yml | live-tap | workflow_dispatch, schedule(17 6 * * *) |  | "ubuntu-latest" | 1 | linux-small |  | GITHUB_TOKEN |  |  |
-| compute | microvm.yml | microvm | workflow_dispatch, pull_request(paths), push(branches=main) |  | "ubuntu-latest" | 1 | linux-build | go, rust |  |  | yes |
-| compute | microvm.yml | container-engine | workflow_dispatch, pull_request(paths), push(branches=main) |  | "ubuntu-latest" | 1 | linux-build | go, oci-build, rust |  |  |  |
+| compute | microvm.yml | microvm | workflow_dispatch, pull_request(paths), push(branches=main) |  | "ubuntu-latest" | 1 | linux-build | rust |  |  | yes |
+| compute | microvm.yml | container-engine | workflow_dispatch, pull_request(paths), push(branches=main) |  | "ubuntu-latest" | 1 | linux-build | oci-build, rust |  |  |  |
 | compute | release-tag-guard.yml | refuse | push(tags=V*\|[0-9]*) |  | "ubuntu-latest" | 1 | linux-small |  |  |  |  |
-| compute | stack.yml | contract | workflow_dispatch, schedule(17 6 * * *), pull_request(paths), push(branches=main,paths) |  | "ubuntu-latest" | 1 | linux-build | go, rust |  |  |  |
-| compute | stack.yml | candidate | workflow_dispatch, schedule(17 6 * * *), pull_request(paths), push(branches=main,paths) |  | "ubuntu-latest" | 1 | linux-build | go, node, pnpm, rust | STACK_SOURCES_TOKEN |  | yes |
-| compute | test.yml | workspace | workflow_dispatch, pull_request, push(branches=main) |  | "ubuntu-latest" | 1 | linux-build | go, node, rust |  | cloudflare, homebrew |  |
-| compute | test.yml | browser | workflow_dispatch, pull_request, push(branches=main) |  | "ubuntu-latest" | 1 | linux-browser, linux-build | go, node, playwright, rust |  |  |  |
+| compute | stack.yml | contract | workflow_dispatch, schedule(17 6 * * *), pull_request(paths), push(branches=main,paths) |  | "ubuntu-latest" | 1 | linux-build | rust |  |  |  |
+| compute | stack.yml | candidate | workflow_dispatch, schedule(17 6 * * *), pull_request(paths), push(branches=main,paths) |  | "ubuntu-latest" | 1 | linux-build | node, pnpm, rust | STACK_SOURCES_TOKEN |  | yes |
+| compute | test.yml | workspace | workflow_dispatch, pull_request, push(branches=main) |  | "ubuntu-latest" | 1 | linux-build | node, rust |  | cloudflare, homebrew |  |
+| compute | test.yml | browser | workflow_dispatch, pull_request, push(branches=main) |  | "ubuntu-latest" | 1 | linux-browser, linux-build | node, playwright, rust |  |  |  |
 | distribution-protocol | ci.yml | test | pull_request, workflow_dispatch, push(branches=**) |  | "ubuntu-latest" | 3 | linux-small | node |  |  |  |
 | distribution-protocol | ci.yml | package | pull_request, workflow_dispatch, push(branches=**) |  | "ubuntu-latest" | 1 | linux-small | node |  |  |  |
 | felt-ops | ci.yml | verify | push, pull_request, workflow_dispatch |  | "ubuntu-latest" | 1 | linux-small | node |  |  | yes |
@@ -156,17 +156,17 @@
 | feltkit | ci.yml | isolation | push(branches=main), pull_request, workflow_dispatch |  | "ubuntu-latest" | 1 | linux-small | node |  |  |  |
 | feltkit | ci.yml | test | push(branches=main), pull_request, workflow_dispatch |  | "ubuntu-latest" | 1 | linux-browser | node, playwright |  |  |  |
 | feltkit | ci.yml | e2e | push(branches=main), pull_request, workflow_dispatch |  | "ubuntu-latest" | 1 | linux-browser | node, playwright |  |  |  |
-| feltkit | ci.yml | e2e-feltdb | push(branches=main), pull_request, workflow_dispatch |  | "ubuntu-latest" | 1 | deploy, linux-build | go, node, rust | FLOW_DB_READ_TOKEN |  |  |
+| feltkit | ci.yml | e2e-feltdb | push(branches=main), pull_request, workflow_dispatch |  | "ubuntu-latest" | 1 | deploy, linux-build | node, rust | FLOW_DB_READ_TOKEN |  |  |
 | feltkit | publish.yml | publish | workflow_dispatch, push(branches=main\|claude/concave-platform-mvp-d7lcwi) |  | "ubuntu-latest" | 1 | linux-browser | node, playwright | NPM_TOKEN | npm |  |
 | flow_db | architecture-conformance.yml | conformance | pull_request(branches=main\|develop), push(branches=main\|develop) |  | "ubuntu-latest" | 1 | linux-small | node | TYPESAFE_API_TOKEN, TYPESAFE_API_URL |  | yes |
-| flow_db | ci.yml | test-rust | push(branches=main\|develop), pull_request(branches=main\|develop) |  | "ubuntu-latest" | 1 | linux-build | go, rust, wasm |  |  |  |
-| flow_db | ci.yml | build-packages | push(branches=main\|develop), pull_request(branches=main\|develop) |  | "ubuntu-latest" | 1 | linux-browser, linux-build | go, node, playwright, rust, wasm |  |  | yes |
-| flow_db | ci.yml | build-container | push(branches=main\|develop), pull_request(branches=main\|develop) |  | "ubuntu-latest" | 1 | deploy, linux-build | go, oci-build, rust |  |  | yes |
+| flow_db | ci.yml | test-rust | push(branches=main\|develop), pull_request(branches=main\|develop) |  | "ubuntu-latest" | 1 | linux-build | rust, wasm |  |  |  |
+| flow_db | ci.yml | build-packages | push(branches=main\|develop), pull_request(branches=main\|develop) |  | "ubuntu-latest" | 1 | linux-browser, linux-build | node, playwright, rust, wasm |  |  | yes |
+| flow_db | ci.yml | build-container | push(branches=main\|develop), pull_request(branches=main\|develop) |  | "ubuntu-latest" | 1 | deploy, linux-build | oci-build, rust |  |  | yes |
 | flow_db | ci.yml | package-manager-matrix | push(branches=main\|develop), pull_request(branches=main\|develop) | build-packages | "ubuntu-latest" | 3 | linux-small | bun, node, pnpm |  |  | yes |
 | flow_db | ci.yml | create-feltdb-test | push(branches=main\|develop), pull_request(branches=main\|develop) | build-packages | "ubuntu-latest" | 1 | linux-small | node |  |  |  |
 | flow_db | ci.yml | e2e-acceptance-test | push(branches=main\|develop), pull_request(branches=main\|develop) | build-packages, create-feltdb-test | "ubuntu-latest" | 1 | linux-build | node, rust |  |  |  |
 | flow_db | ci.yml | attest | push(branches=main\|develop), pull_request(branches=main\|develop) | test-rust, build-packages, build-container, e2e-acceptance-test, create-feltdb-test | "ubuntu-latest" | 1 | linux-small |  |  | github-releases | yes |
-| flow_db | disaster-recovery.yml | restore-drill | workflow_dispatch, schedule(17 6 1 * *) |  | "ubuntu-latest" | 1 | linux-build | go, rust |  |  | yes |
+| flow_db | disaster-recovery.yml | restore-drill | workflow_dispatch, schedule(17 6 1 * *) |  | "ubuntu-latest" | 1 | linux-build | rust |  |  | yes |
 | flow_db | fly-deploy.yml | report-skipped-deploy | workflow_dispatch, workflow_run(branches=main,types=completed,after=CI) |  | "ubuntu-latest" | 1 | deploy, linux-small |  |  |  |  |
 | flow_db | fly-deploy.yml | deploy | workflow_dispatch, workflow_run(branches=main,types=completed,after=CI) |  | "ubuntu-latest" | 1 | deploy, linux-small |  | FLY_API_TOKEN | fly.io |  |
 | flow_db | proof-qualification.yml | hostile-node | schedule(17 4 * * *), workflow_dispatch |  | "ubuntu-latest" | 1 | deploy, linux-browser, linux-build | node, oci-build, playwright |  |  | yes |
@@ -185,7 +185,7 @@
 | flow_db | rust-crate-validate.yml | validate | pull_request(paths), workflow_dispatch, workflow_call | guards, plan | "ubuntu-latest" | dynamic | linux-build | rust, wasm |  |  |  |
 | flow_db | studio-deploy.yml | deploy | workflow_dispatch |  | "ubuntu-latest" | 1 | deploy, linux-small | node | VERCEL_ORG_ID, VERCEL_PROJECT_ID, VERCEL_TOKEN |  |  |
 | fx | agent-parity.yml | harness | push(paths), pull_request(paths), workflow_dispatch |  | "ubuntu-24.04" | 1 | linux-small | python |  |  |  |
-| fx | agent-parity.yml | parity | push(paths), pull_request(paths), workflow_dispatch |  | "ubuntu-24.04" | 1 | linux-build | go, python, rust, zig |  |  | yes |
+| fx | agent-parity.yml | parity | push(paths), pull_request(paths), workflow_dispatch |  | "ubuntu-24.04" | 1 | linux-build | python, rust, zig |  |  | yes |
 | fx | bench.yml | bench | workflow_dispatch, push(branches=main), pull_request |  | "ubuntu-latest" | 1 | linux-build | python, zig |  |  |  |
 | fx | binary-size.yml | compare | pull_request |  | "${{ matrix.runner }}" | 4 | linux-arm64, linux-build, macos-arm64, macos-x64 | python, zig |  |  | yes |
 | fx | cdn-backfill.yml | backfill | workflow_dispatch |  | "ubuntu-latest" | 1 | linux-small, release |  | BLOB_READ_WRITE_TOKEN | github-releases |  |
@@ -206,11 +206,11 @@
 | fx | full-ci.yml | native | workflow_dispatch, push |  | "${{ matrix.platform.runner }}" | 4 | linux-arm64, linux-build, macos-arm64, macos-x64 | zig |  |  |  |
 | fx | full-ci.yml | e2e | workflow_dispatch, push |  | "${{ matrix.platform.runner }}" | 16 | linux-arm64, linux-build, macos-arm64, macos-x64 | bun, zig |  | homebrew |  |
 | fx | full-ci.yml | full-suite | workflow_dispatch, push | native, e2e | "ubuntu-24.04" | 4 | linux-small |  |  |  |  |
-| fx | host-bridge.yml | rust-host | push(paths), pull_request(paths), workflow_dispatch |  | "${{ matrix.os }}" | 2 | linux-build, macos-arm64 | go, rust, wasm |  |  |  |
-| fx | host-bridge.yml | wasm-abi | push(paths), pull_request(paths), workflow_dispatch |  | "${{ matrix.os }}" | 2 | linux-build, macos-arm64 | go, rust, wasm |  |  |  |
-| fx | host-bridge.yml | node-host | push(paths), pull_request(paths), workflow_dispatch |  | "${{ matrix.os }}" | 3 | linux-build, macos-arm64 | go, node, rust, wasm |  |  |  |
-| fx | native-provider.yml | native-provider | push(paths), pull_request(paths), workflow_dispatch |  | "${{ matrix.os }}" | 2 | linux-build, macos-arm64 | go, python, rust, wasm |  |  |  |
-| fx | native-provider.yml | parity | push(paths), pull_request(paths), workflow_dispatch |  | "${{ matrix.os }}" | 2 | linux-build, macos-arm64 | go, node, rust, wasm |  |  |  |
+| fx | host-bridge.yml | rust-host | push(paths), pull_request(paths), workflow_dispatch |  | "${{ matrix.os }}" | 2 | linux-build, macos-arm64 | rust, wasm |  |  |  |
+| fx | host-bridge.yml | wasm-abi | push(paths), pull_request(paths), workflow_dispatch |  | "${{ matrix.os }}" | 2 | linux-build, macos-arm64 | rust, wasm |  |  |  |
+| fx | host-bridge.yml | node-host | push(paths), pull_request(paths), workflow_dispatch |  | "${{ matrix.os }}" | 3 | linux-build, macos-arm64 | node, rust, wasm |  |  |  |
+| fx | native-provider.yml | native-provider | push(paths), pull_request(paths), workflow_dispatch |  | "${{ matrix.os }}" | 2 | linux-build, macos-arm64 | python, rust, wasm |  |  |  |
+| fx | native-provider.yml | parity | push(paths), pull_request(paths), workflow_dispatch |  | "${{ matrix.os }}" | 2 | linux-build, macos-arm64 | node, rust, wasm |  |  |  |
 | fx | pgso-macos-arm64.yml | seed | workflow_call, workflow_dispatch, pull_request(paths) |  | "macos-15" | 1 | macos-arm64 | bun, python |  |  | yes |
 | fx | pgso-macos-arm64.yml | train | workflow_call, workflow_dispatch, pull_request(paths) | seed | "macos-15" | 1 | macos-arm64 | bun, python |  |  | yes |
 | fx | pgso-macos-arm64.yml | candidate | workflow_call, workflow_dispatch, pull_request(paths) | seed, train | "macos-15" | 1 | macos-arm64 | python |  |  | yes |
@@ -227,26 +227,26 @@
 | fx | release.yml | build | push(branches=main), workflow_dispatch | check-version | "ubuntu-latest" | 3 | linux-build | zig |  |  | yes |
 | fx | release.yml | build-macos-arm64 → ./.github/workflows/pgso-macos-arm64.yml | push(branches=main), workflow_dispatch | check-version | null | 1 | linux-small |  |  |  |  |
 | fx | release.yml | release | push(branches=main), workflow_dispatch | check-version, build, build-macos-arm64 | "ubuntu-latest" | 1 | linux-small, release |  | BLOB_READ_WRITE_TOKEN | github-releases |  |
-| fx | rust-core.yml | check | push(paths), pull_request(paths), workflow_dispatch |  | "${{ matrix.os }}" | 2 | linux-build, macos-arm64 | go, rust, wasm |  |  |  |
-| fx | rust-core.yml | single-attempt | push(paths), pull_request(paths), workflow_dispatch |  | "${{ matrix.os }}" | 2 | linux-build, macos-arm64 | go, rust, wasm |  |  |  |
-| fx | session-interop.yml | interop | push(paths), pull_request(paths), workflow_dispatch |  | "ubuntu-24.04" | 1 | linux-build | go, python, rust, zig |  |  |  |
-| fx | unified-runtime.yml | chip-over-fx | push(paths), pull_request(paths), workflow_dispatch |  | "ubuntu-24.04" | 1 | linux-build | go, node, python, rust, wasm, zig |  |  |  |
+| fx | rust-core.yml | check | push(paths), pull_request(paths), workflow_dispatch |  | "${{ matrix.os }}" | 2 | linux-build, macos-arm64 | rust, wasm |  |  |  |
+| fx | rust-core.yml | single-attempt | push(paths), pull_request(paths), workflow_dispatch |  | "${{ matrix.os }}" | 2 | linux-build, macos-arm64 | rust, wasm |  |  |  |
+| fx | session-interop.yml | interop | push(paths), pull_request(paths), workflow_dispatch |  | "ubuntu-24.04" | 1 | linux-build | python, rust, zig |  |  |  |
+| fx | unified-runtime.yml | chip-over-fx | push(paths), pull_request(paths), workflow_dispatch |  | "ubuntu-24.04" | 1 | linux-build | node, python, rust, wasm, zig |  |  |  |
 | homebrew-compute | sync.yml | formula | schedule(17 * * * *), workflow_dispatch |  | "ubuntu-latest" | 1 | linux-small |  |  | homebrew |  |
 | homebrew-compute | tests.yml | install-linux-x86_64 | pull_request, push(branches=main), workflow_dispatch |  | "ubuntu-latest" | 1 | linux-small |  |  | homebrew |  |
 | homebrew-compute | tests.yml | upgrade-preserves-state | pull_request, push(branches=main), workflow_dispatch |  | "ubuntu-latest" | 1 | linux-small |  |  | homebrew |  |
 | homebrew-compute | tests.yml | configured-linux-x86_64 | pull_request, push(branches=main), workflow_dispatch |  | "ubuntu-latest" | 1 | linux-small |  |  | homebrew |  |
 | homebrew-compute | tests.yml | install-macos-aarch64-preview | pull_request, push(branches=main), workflow_dispatch |  | "macos-15" | 1 | macos-arm64 |  |  | homebrew |  |
-| pax | release.yml | check | push(tags=v*), workflow_dispatch |  | "ubuntu-latest" | 1 | linux-build | go, rust |  |  |  |
-| pax | release.yml | build | push(tags=v*), workflow_dispatch | check | "${{ matrix.runner }}" | 5 | linux-build, macos-arm64, windows | go, rust |  |  | yes |
+| pax | release.yml | check | push(tags=v*), workflow_dispatch |  | "ubuntu-latest" | 1 | linux-build | rust |  |  |  |
+| pax | release.yml | build | push(tags=v*), workflow_dispatch | check | "${{ matrix.runner }}" | 5 | linux-build, macos-arm64, windows | rust |  |  | yes |
 | pax | release.yml | release | push(tags=v*), workflow_dispatch | build | "ubuntu-latest" | 1 | linux-small, release |  |  | github-releases |  |
 | personalOS | ci.yml | check | push(branches=main), pull_request |  | "ubuntu-latest" | 1 | linux-browser | node, playwright |  |  | yes |
 | personalOS | ios.yml | build | push(paths), pull_request(paths), workflow_dispatch |  | "macos-15" | 1 | macos-arm64 | xcode |  | homebrew | yes |
 | resolver | ci.yml | test | push, pull_request |  | "ubuntu-latest" | 1 | linux-small | node |  |  |  |
 | resolver | ci.yml | browser | push, pull_request |  | "ubuntu-latest" | 1 | linux-browser | node, playwright |  |  |  |
 | resolver | publish.yml | publish | workflow_dispatch |  | "ubuntu-latest" | 1 | linux-small | node | NPM_TOKEN | npm |  |
-| stack-agent | ci.yml | ci | push(branches=main), pull_request, workflow_dispatch |  | "ubuntu-latest" | 1 | linux-build | go, python, rust, wasm, zig |  |  |  |
+| stack-agent | ci.yml | ci | push(branches=main), pull_request, workflow_dispatch |  | "ubuntu-latest" | 1 | linux-build | python, rust, wasm, zig |  |  |  |
 | stack-agent | ci.yml | release-scripts | push(branches=main), pull_request, workflow_dispatch |  | "${{ matrix.os }}" | 2 | linux-build, macos-arm64 | oci-build, python, rust |  |  |  |
-| stack-agent | release.yml | build | push(tags=v*), workflow_dispatch |  | "${{ matrix.os }}" | 2 | linux-build, macos-arm64 | go, rust, xcode |  |  | yes |
+| stack-agent | release.yml | build | push(tags=v*), workflow_dispatch |  | "${{ matrix.os }}" | 2 | linux-build, macos-arm64 | rust, xcode |  |  | yes |
 | stack-agent | release.yml | linux-compat | push(tags=v*), workflow_dispatch | build | "ubuntu-22.04" | 3 | linux-small | oci-build |  |  |  |
 | stack-agent | release.yml | linux-floor | push(tags=v*), workflow_dispatch |  | "ubuntu-22.04" | 2 | linux-small | oci-build |  |  |  |
 | stack-agent | release.yml | provenance-check | push(tags=v*), workflow_dispatch | build, linux-compat, linux-floor | "ubuntu-22.04" | 1 | linux-small |  |  |  |  |
@@ -256,4 +256,4 @@
 | stack-ui | release.yml | PARSE ERROR | Nested mappings are not allowed in compact mappings at line 41, column 14: |||||||||
 | supply-desk | ci.yml | check | push, pull_request |  | "ubuntu-latest" | 1 | linux-small | node |  |  |  |
 | tableOS | ci.yml | check | push, pull_request |  | "ubuntu-latest" | 1 | linux-small | node |  |  |  |
-| wasm-agent-env | ci.yml | test | push, pull_request |  | "ubuntu-latest" | 1 | linux-build | go, rust, wasm |  |  | yes |
+| wasm-agent-env | ci.yml | test | push, pull_request |  | "ubuntu-latest" | 1 | linux-build | rust, wasm |  |  | yes |

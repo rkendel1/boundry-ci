@@ -1,0 +1,29 @@
+# Boundry CI Linux worker on the shared host. Runs as the unprivileged `bci-worker` account and drives
+# ROOTLESS Podman as that account: no Docker socket, no root daemon access, job containers live in the
+# account's user namespace. Prerequisites are checked by ci-preflight.sh (podman, uidmap, /etc/subuid).
+[Unit]
+Description=Boundry CI worker (linux-small, linux-build)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=bci-worker
+Group=bci-worker
+WorkingDirectory=/opt/boundry-ci
+Environment=BCI_CONTROL_URL=http://127.0.0.1:21030
+Environment=BCI_WORKER_TOKEN_FILE=/etc/boundry-ci/worker/token
+Environment=BCI_CAPABILITIES=linux-small,linux-build
+Environment=BCI_WORK_ROOT=/var/lib/bci-worker/work
+Environment=BCI_OCI_CLI=podman
+ExecStart=/usr/bin/node /opt/boundry-ci/bin/boundry-ci.ts worker
+Restart=always
+RestartSec=5
+# Contain the whole worker (agent + rootless containers) in its own slice so CI cannot starve production.
+Slice=boundry-ci.slice
+NoNewPrivileges=no
+ProtectSystem=strict
+ReadWritePaths=/var/lib/bci-worker /run/user
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target

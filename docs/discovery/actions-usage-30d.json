@@ -1,0 +1,356 @@
+{
+  "window": "runs created 2026-10-17..2026-11-16 (30 days)",
+  "repos": {
+    "flow_db": {
+      "jobs": 1998,
+      "minutes": {
+        "linux": 9847.8,
+        "macos": 0,
+        "windows": 0,
+        "other": 0
+      },
+      "billable": {
+        "linux": 10632,
+        "macos": 0,
+        "windows": 0,
+        "other": 0
+      },
+      "failedMinutes": 3231.1,
+      "workflows": {
+        ".github/workflows/architecture-conformance.yml": {
+          "runs": 214,
+          "jobs": 214,
+          "minutes": 684.6,
+          "avgJobMin": 3.2,
+          "maxJobMin": 8.4,
+          "os": [
+            "linux"
+          ]
+        },
+        ".github/workflows/proof-qualification.yml": {
+          "runs": 31,
+          "jobs": 62,
+          "minutes": 1061,
+          "avgJobMin": 17.11,
+          "maxJobMin": 360.6,
+          "os": [
+            "linux"
+          ]
+        },
+        ".github/workflows/fly-deploy.yml": {
+          "runs": 87,
+          "jobs": 131,
+          "minutes": 96.1,
+          "avgJobMin": 0.73,
+          "maxJobMin": 10.7,
+          "os": [
+            "linux"
+          ]
+        },
+        ".github/workflows/ci.yml": {
+          "runs": 211,
+          "jobs": 1276,
+          "minutes": 7365.8,
+          "avgJobMin": 5.77,
+          "maxJobMin": 61.7,
+          "os": [
+            "linux"
+          ]
+        },
+        ".github/workflows/rust-crate-publish.yml": {
+          "runs": 36,
+          "jobs": 210,
+          "minutes": 433,
+          "avgJobMin": 2.06,
+          "maxJobMin": 21.8,
+          "os": [
+            "linux",
+            "other"
+          ]
+        },
+        ".github/workflows/rust-crate-validate.yml": {
+          "runs": 22,
+          "jobs": 98,
+          "minutes": 203.5,
+          "avgJobMin": 2.08,
+          "maxJobMin": 5.7,
+          "os": [
+            "linux"
+          ]
+        },
+        ".github/workflows/release.yml": {
+          "runs": 2,
+          "jobs": 6,
+          "minutes": 1.4,
+          "avgJobMin": 0.23,
+          "maxJobMin": 0.5,
+          "os": [
+            "linux"
+          ]
+        },
+        ".github/workflows/disaster-recovery.yml": {
+          "runs": 1,
+          "jobs": 1,
+          "minutes": 2.4,
+          "avgJobMin": 2.42,
+          "maxJobMin": 2.4,
+          "os": [
+            "linux"
+          ]
+        }
+      }
+    },
+    "feltkit": {
+      "jobs": 858,
+      "minutes": {
+        "linux": 5044.7,
+        "macos": 0,
+        "windows": 0,
+        "other": 0
+      },
+      "billable": {
+        "linux": 5458,
+        "macos": 0,
+        "windows": 0,
+        "other": 0
+      },
+      "failedMinutes": 2284.9,
+      "workflows": {
+        ".github/workflows/ci.yml": {
+          "runs": 224,
+          "jobs": 790,
+          "minutes": 5039.5,
+          "avgJobMin": 6.38,
+          "maxJobMin": 45.3,
+          "os": [
+            "linux"
+          ]
+        },
+        ".github/workflows/publish.yml": {
+          "runs": 68,
+          "jobs": 68,
+          "minutes": 5.3,
+          "avgJobMin": 0.08,
+          "maxJobMin": 2.8,
+          "os": [
+            "linux"
+          ]
+        }
+      }
+    },
+    "appport": {
+      "jobs": 73,
+      "minutes": {
+        "linux": 634,
+        "macos": 0,
+        "windows": 0,
+        "other": 0
+      },
+      "billable": {
+        "linux": 671,
+        "macos": 0,
+        "windows": 0,
+        "other": 0
+      },
+      "failedMinutes": 214.6,
+      "workflows": {
+        ".github/workflows/ci.yml": {
+          "runs": 43,
+          "jobs": 43,
+          "minutes": 581.3,
+          "avgJobMin": 13.52,
+          "maxJobMin": 51.4,
+          "os": [
+            "linux"
+          ]
+        },
+        ".github/workflows/legacy-migration.yml": {
+          "runs": 15,
+          "jobs": 30,
+          "minutes": 52.7,
+          "avgJobMin": 1.76,
+          "maxJobMin": 3.5,
+          "os": [
+            "linux"
+          ]
+        }
+      }
+    },
+    "appboundry": {
+      "jobs": 408,
+      "minutes": {
+        "linux": 1822.8,
+        "macos": 0,
+        "windows": 0,
+        "other": 0
+      },
+      "billable": {
+        "linux": 2011,
+        "macos": 0,
+        "windows": 0,
+        "other": 0
+      },
+      "failedMinutes": 752.8,
+      "workflows": {
+        ".github/workflows/ci.yml": {
+          "runs": 130,
+          "jobs": 216,
+          "minutes": 1405,
+          "avgJobMin": 6.5,
+          "maxJobMin": 16,
+          "os": [
+            "linux"
+          ]
+        },
+        ".github/workflows/feltkit-deploy-acceptance.yml": {
+          "runs": 35,
+          "jobs": 35,
+          "minutes": 59.9,
+          "avgJobMin": 1.71,
+          "maxJobMin": 3.5,
+          "os": [
+            "linux"
+          ]
+        },
+        ".github/workflows/boundry-images.yml": {
+          "runs": 9,
+          "jobs": 11,
+          "minutes": 39.1,
+          "avgJobMin": 3.55,
+          "maxJobMin": 13.5,
+          "os": [
+            "linux"
+          ]
+        },
+        ".github/workflows/cloud-portal.yml": {
+          "runs": 117,
+          "jobs": 117,
+          "minutes": 292,
+          "avgJobMin": 2.5,
+          "maxJobMin": 15.2,
+          "os": [
+            "linux"
+          ]
+        },
+        ".github/workflows/host-build-compatibility.yml": {
+          "runs": 29,
+          "jobs": 29,
+          "minutes": 26.8,
+          "avgJobMin": 0.92,
+          "maxJobMin": 1.2,
+          "os": [
+            "linux"
+          ]
+        }
+      }
+    },
+    "authboundry": {
+      "jobs": 879,
+      "minutes": {
+        "linux": 1787.7,
+        "macos": 1033.8,
+        "windows": 0,
+        "other": 0
+      },
+      "billable": {
+        "linux": 2103,
+        "macos": 1162,
+        "windows": 0,
+        "other": 0
+      },
+      "failedMinutes": 298.5,
+      "workflows": {
+        ".github/workflows/architecture-invariants.yml": {
+          "runs": 147,
+          "jobs": 147,
+          "minutes": 708.9,
+          "avgJobMin": 4.82,
+          "maxJobMin": 6.6,
+          "os": [
+            "linux"
+          ]
+        },
+        ".github/workflows/cli-smoke.yml": {
+          "runs": 146,
+          "jobs": 584,
+          "minutes": 1658.8,
+          "avgJobMin": 2.84,
+          "maxJobMin": 9.2,
+          "os": [
+            "linux",
+            "macos"
+          ]
+        },
+        ".github/workflows/portal.yml": {
+          "runs": 66,
+          "jobs": 66,
+          "minutes": 188.3,
+          "avgJobMin": 2.85,
+          "maxJobMin": 5.5,
+          "os": [
+            "linux"
+          ]
+        },
+        ".github/workflows/release.yml": {
+          "runs": 14,
+          "jobs": 82,
+          "minutes": 265.4,
+          "avgJobMin": 3.24,
+          "maxJobMin": 18.7,
+          "os": [
+            "linux",
+            "macos",
+            "other"
+          ]
+        }
+      }
+    },
+    "stack-intel": {
+      "jobs": 5,
+      "minutes": {
+        "linux": 1.2,
+        "macos": 0,
+        "windows": 0,
+        "other": 0
+      },
+      "billable": {
+        "linux": 5,
+        "macos": 0,
+        "windows": 0,
+        "other": 0
+      },
+      "failedMinutes": 0,
+      "workflows": {
+        ".github/workflows/publish.yml": {
+          "runs": 5,
+          "jobs": 5,
+          "minutes": 1.2,
+          "avgJobMin": 0.23,
+          "maxJobMin": 0.3,
+          "os": [
+            "linux"
+          ]
+        }
+      }
+    }
+  },
+  "totals": {
+    "jobs": 4221,
+    "minutes": {
+      "linux": 19138.2,
+      "macos": 1033.8,
+      "windows": 0,
+      "other": 0
+    },
+    "billable": {
+      "linux": 20880,
+      "macos": 1162,
+      "windows": 0,
+      "other": 0
+    },
+    "failedMinutes": 6781.900000000001,
+    "skippedOrNoRun": 9,
+    "peakConcurrentJobs": 24,
+    "weightedMinutes": 32500
+  }
+}

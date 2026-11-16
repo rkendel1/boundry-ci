@@ -1,0 +1,19 @@
+# Boundry CI ingress. NOT APPLIED automatically: adding it is a separately authorized change to the
+# shared Caddy configuration (one `import /etc/caddy/boundry-ci.caddy` line, `caddy validate`, graceful
+# `caddy reload`, never a restart). Replace the host name; its DNS must already point at this server.
+# Only token-authenticated paths are routed; everything else is 404 at the edge.
+ci.example.test {
+	encode zstd gzip
+	@api path /webhooks/github /v1/* /healthz
+	handle @api {
+		reverse_proxy 127.0.0.1:21030 {
+			header_down Strict-Transport-Security "max-age=31536000"
+		}
+	}
+	handle {
+		respond 404
+	}
+	request_body {
+		max_size 2GB
+	}
+}

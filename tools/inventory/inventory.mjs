@@ -71,7 +71,7 @@ function toolchains(text) {
   m(/rust-toolchain|dtolnay|cargo /i, "rust");
   m(/setup-zig|zig build|\bzig\b/i, "zig");
   m(/setup-python|pip install|\bpython3? /i, "python");
-  m(/setup-go|go build|go test/i, "go");
+  m(/setup-go|\bgo (build|test|vet|run)\b/i, "go");
   m(/docker |buildx|docker\/build-push/i, "oci-build");
   m(/playwright/i, "playwright");
   m(/wasm32|wasm-pack|wasmtime/i, "wasm");

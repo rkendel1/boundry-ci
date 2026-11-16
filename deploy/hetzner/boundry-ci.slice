@@ -1,0 +1,11 @@
+# Hard ceiling for all CI execution on the shared host. Values are a starting point; set them from the
+# host-preflight report (capacity minus what production needs), not from this file.
+[Unit]
+Description=Boundry CI resource ceiling
+
+[Slice]
+CPUQuota=400%
+MemoryMax=12G
+MemoryHigh=10G
+TasksMax=4096
+IOWeight=50
