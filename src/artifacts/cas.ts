@@ -83,6 +83,9 @@ export class ContentStore {
     return h.digest("hex") === hex;
   }
 
+  /** Remove one object. Only for health probes that wrote an unreferenced object moments earlier. */
+  removeProbe(hex: string): void { rmSync(this.pathOf(hex), { force: true }); }
+
   /** Delete objects not in `keep` (garbage collection driven by FeltDB retention metadata). */
   sweep(keep: Set<string>): string[] {
     const removed: string[] = [];

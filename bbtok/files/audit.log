@@ -1,0 +1,7 @@
+{"timestamp_ms":1794869768685,"namespace":"boundry-ci","principal":"nV7SHjegFl98","action":"state:write","target":"/transactions","outcome":"allowed","status":201}
+{"timestamp_ms":1794869768703,"namespace":"boundry-ci","principal":"nV7SHjegFl98","action":"state:write","target":"/query","outcome":"allowed","status":200}
+{"timestamp_ms":1794869768714,"namespace":"boundry-ci","principal":"nV7SHjegFl98","action":"state:read","target":"/collections/x/1tok","outcome":"allowed","status":200}
+{"timestamp_ms":1794869768727,"namespace":"boundry-ci","principal":"nV7SHjegFl98","action":"cluster:write","target":"/admin/backups","outcome":"denied","status":403}
+{"timestamp_ms":1794869768743,"namespace":"boundry-ci","principal":"rdxozAtMJBtr","action":"state:write","target":"/transactions","outcome":"denied","status":403}
+{"timestamp_ms":1794869768755,"namespace":"boundry-ci","principal":"rdxozAtMJBtr","action":"state:write","target":"/query","outcome":"denied","status":403}
+{"timestamp_ms":1794869768767,"namespace":"boundry-ci","principal":"rdxozAtMJBtr","action":"state:read","target":"/collections/x/1tok","outcome":"denied","status":403}

@@ -17,6 +17,7 @@ import { GithubAdapter } from "../src/scm/github.ts";
 import { WorkerAgent } from "../src/worker/agent.ts";
 import { OciExecutor } from "../src/worker/executor.ts";
 import { compile } from "../src/spec/compile.ts";
+import { Deployer, type Layout } from "../src/deploy/lifecycle.ts";
 
 const env = (k: string, d?: string): string => {
   const v = process.env[k] ?? d;
@@ -26,7 +27,8 @@ const env = (k: string, d?: string): string => {
 const secretFile = (k: string): string => {
   const p = env(k);
   const st = statSync(p);
-  if (st.mode & 0o077) { console.error(`${k}: ${p} must not be group/world readable`); process.exit(2); }
+  // Group read is allowed (secrets are root:<service-gid> 0440); group write and any world access are not.
+  if (st.mode & 0o027) { console.error(`${k}: ${p} must not be group-writable or world-accessible`); process.exit(2); }
   return readFileSync(p, "utf8").trim();
 };
 const log = (msg: string, f: Record<string, unknown> = {}) => console.log(JSON.stringify({ t: new Date().toISOString(), msg, ...f }));
@@ -39,7 +41,7 @@ class FileSecrets implements SecretProvider {
     const p = join(this.dir, `${repository.replace("/", "__")}.env`);
     const vals: Record<string, string> = {};
     if (existsSync(p)) {
-      if (statSync(p).mode & 0o077) throw new Error(`secret file for ${repository} has unsafe permissions`);
+      if (statSync(p).mode & 0o027) throw new Error(`secret file for ${repository} has unsafe permissions`);
       for (const line of readFileSync(p, "utf8").split("\n")) {
         const m = /^([A-Z_][A-Z0-9_]*)=(.*)$/.exec(line.trim());
         if (m) vals[m[1]] = m[2];
@@ -86,7 +88,7 @@ async function control() {
     }
   }
   const cas = new ContentStore({ root: join(env("BCI_DATA_DIR"), "cas"), minFreeBytes: Number(env("BCI_CAS_MIN_FREE_BYTES", String(10 * 1024 ** 3))) });
-  const server = createControlServer({ cp, cas, webhookSecret: secretFile("BCI_WEBHOOK_SECRET_FILE"), operators, log });
+  const server = createControlServer({ cp, cas, webhookSecret: secretFile("BCI_WEBHOOK_SECRET_FILE"), operators, log, canaryImage: process.env.BCI_CANARY_IMAGE });
   const [host, port] = env("BCI_LISTEN", "127.0.0.1:21030").split(":");
   server.listen(Number(port), host, () => log("control listening", { host, port }));
   const loop = (name: string, ms: number, f: () => Promise<unknown>) => {
@@ -114,6 +116,38 @@ async function worker() {
   });
   for (const sig of ["SIGTERM", "SIGINT"]) process.on(sig, () => { log("draining"); agent.stop(); });
   await agent.runForever();
+  process.exit(0);
+}
+
+/** Host layout for `deploy`; production defaults, every path overridable for staging and tests. */
+function layout(): Layout {
+  const e = process.env;
+  return {
+    root: e.BCI_DEPLOY_ROOT ?? "/opt/boundry-ci", etc: e.BCI_DEPLOY_ETC ?? "/etc/boundry-ci", var: e.BCI_DEPLOY_VAR ?? "/var/lib/boundry-ci",
+    project: e.BCI_DEPLOY_PROJECT ?? "boundry-ci", portControl: Number(e.BCI_DEPLOY_PORT_CONTROL ?? 21030), portFeltdb: Number(e.BCI_DEPLOY_PORT_FELTDB ?? 21031),
+    subnet: e.BCI_DEPLOY_SUBNET ?? "172.31.8.0/24", identityScript: e.BCI_DEPLOY_IDENTITY_SCRIPT ?? "/opt/boundry/image-identity.mjs",
+    workerDriver: (e.BCI_DEPLOY_WORKER_DRIVER as Layout["workerDriver"]) ?? "systemd", workerUnit: e.BCI_DEPLOY_WORKER_UNIT ?? "boundry-ci-worker",
+    workerId: e.BCI_DEPLOY_WORKER_ID ?? "hetzner-1", workerUid: e.BCI_DEPLOY_WORKER_UID ? Number(e.BCI_DEPLOY_WORKER_UID) : undefined,
+    verifyTimeoutMs: Number(e.BCI_DEPLOY_VERIFY_TIMEOUT_MS ?? 180_000), drainTimeoutMs: Number(e.BCI_DEPLOY_DRAIN_TIMEOUT_MS ?? 600_000), log,
+  };
+}
+
+async function deployCmd(args: string[]) {
+  const d = new Deployer(layout());
+  const print = (o: unknown) => console.log(JSON.stringify(o, null, 2));
+  switch (args[0]) {
+    case "init": print(await d.init(JSON.parse(readFileSync(join(args[1], "release.json"), "utf8")))); return;
+    case "preflight": { const m = JSON.parse(readFileSync(join(args[1], "release.json"), "utf8")); const r = await d.preflight(m, args[1]); print({ problems: r.problems, identities: Object.fromEntries(Object.entries(r.identities).map(([k, v]) => [k, v.configDigest])) }); process.exit(r.problems.length ? 1 : 0); }
+    case "apply": { const r = await d.apply(args[1]); print(r); process.exit(r.ok ? 0 : 1); }
+    case "rollback": { const r = await d.rollback(); print(r); process.exit(r.ok ? 0 : 1); }
+    case "verify": { const id = d.pointer("active"); if (!id) { print({ error: "nothing active" }); process.exit(1); } const r = await d.verify(id, { canary: !args.includes("--no-canary") }); print(r); process.exit(r.ok ? 0 : 1); }
+    case "status": print(await d.status()); return;
+    case "backup": print(await d.backup(args[1])); return;
+    case "restore": { if (!args[1]) { console.error("usage: deploy restore <backup-set-dir>"); process.exit(2); } const r = await d.restore(args[1]); print(r); process.exit(r.ok ? 0 : 1); }
+    default:
+      console.error("usage: boundry-ci deploy init|preflight|apply <bundleDir> | rollback | verify [--no-canary] | status | backup [dir] | restore <set>");
+      process.exit(2);
+  }
 }
 
 async function main() {
@@ -130,7 +164,15 @@ async function main() {
       console.log(JSON.stringify(r, null, 2));
       return;
     }
+    case "deploy": return deployCmd(rest);
     case "admin":
+      if (rest[0] === "ensure-worker" && rest[1]) {
+        const cp = new ControlPlane({ store: store(), scm: github(), secrets: new FileSecrets("/nonexistent") });
+        const caps = rest.slice(2).filter((a) => a !== "--rotate");
+        const token = await cp.ensureWorker(rest[1], caps, rest.includes("--rotate"));
+        if (token) console.log(token);
+        return;
+      }
       if (rest[0] === "create-worker" && rest[1]) {
         const cp = new ControlPlane({ store: store(), scm: github(), secrets: new FileSecrets("/nonexistent") });
         console.log(await cp.createWorker(rest[1], rest.slice(2)));

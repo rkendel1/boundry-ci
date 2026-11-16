@@ -7,8 +7,9 @@
 //   POST /v1/runs/:id/cancel  /v1/jobs/:id/approve  /v1/dispatch    operator bearer token
 //   GET  /healthz  /readyz
 import { createServer, type IncomingMessage, type ServerResponse, type Server } from "node:http";
-import { timingSafeEqual, createHash, randomUUID } from "node:crypto";
-import { ControlPlane, C, artifactIdOf, AuthorityError, NotFound, Conflict, type WorkerRec, type RunRec } from "./core.ts";
+import { timingSafeEqual, createHash, randomUUID, randomBytes } from "node:crypto";
+import { Readable } from "node:stream";
+import { ControlPlane, C, artifactIdOf, type JobRec, AuthorityError, NotFound, Conflict, type WorkerRec, type RunRec } from "./core.ts";
 import { ContentStore, DigestMismatch, StorageExhausted, TooLarge } from "../artifacts/cas.ts";
 import { verifyWebhookSignature, normalizeGithubEvent } from "../scm/github.ts";
 import { PreconditionFailed, StoreUnavailable } from "../store/feltdb.ts";
@@ -20,6 +21,9 @@ export interface HttpOptions {
   /** sha256 hex of operator tokens -> operator identity */
   operators: Record<string, string>;
   log?: (msg: string, fields?: Record<string, unknown>) => void;
+  /** Digest-pinned image used by deployment canaries. */
+  canaryImage?: string;
+  revision?: string;
 }
 
 class HttpError extends Error { readonly status: number; constructor(status: number, msg: string) { super(msg); this.status = status; } }
@@ -70,6 +74,9 @@ export function createControlServer(o: HttpOptions): Server {
     try { return b.length ? JSON.parse(b.toString("utf8")) : {}; } catch { throw new HttpError(400, "invalid JSON"); }
   };
 
+  const startedAt = new Date().toISOString();
+  const revision = o.revision ?? process.env.BCI_REVISION ?? "unknown";
+
   return createServer(async (req, res) => {
     const url = new URL(req.url ?? "/", "http://x");
     const p = url.pathname;
@@ -77,6 +84,50 @@ export function createControlServer(o: HttpOptions): Server {
     try {
       if (req.method === "GET" && p === "/healthz") return send(res, 200, { ok: true });
       if (req.method === "GET" && p === "/readyz") return send(res, (await cp.store.ready()) ? 200 : 503, { feltdb: await cp.store.ready() });
+
+      // ── diagnostics (operator token) ──
+      if (req.method === "GET" && p === "/v1/diag/version") { operator(req); return send(res, 200, { revision, startedAt, pid: process.pid }); }
+      if (req.method === "POST" && p === "/v1/diag/probe") {
+        operator(req);
+        const store = await cp.probeStore();
+        const blob = randomBytes(64 * 1024);
+        const hex = createHash("sha256").update(blob).digest("hex");
+        const t = performance.now();
+        await cas.put(Readable.from([blob]), hex, blob.length);
+        const verified = await cas.verify(hex);
+        const chunks: Buffer[] = [];
+        for await (const c of cas.open(hex)) chunks.push(c as Buffer);
+        const readBack = Buffer.concat(chunks).equals(blob);
+        cas.removeProbe(hex);
+        const casReport = { writeVerifyReadMs: +(performance.now() - t).toFixed(1), verified, readBack, freeBytes: cas.freeBytes() };
+        const ok = verified && readBack && Object.values(store.collections).every(Boolean);
+        return send(res, ok ? 200 : 500, { ok, revision, feltdb: store, cas: casReport });
+      }
+      if (req.method === "POST" && p === "/v1/diag/canary") {
+        operator(req);
+        if (!o.canaryImage) throw new HttpError(409, "no canary image configured (BCI_CANARY_IMAGE)");
+        return send(res, 201, { runId: await cp.createCanary(o.canaryImage) });
+      }
+      if (req.method === "GET" && p === "/v1/diag/summary") {
+        operator(req); // read-only: queries only, never writes
+        const now = cp.now();
+        const workers = (await cp.store.query<WorkerRec>(C.workers, [], { limit: 200 })).map((w) => ({
+          id: w.id, disabled: w.disabled, capabilities: w.capabilities, revision: (w.resources as any)?.revision ?? null,
+          lastSeenSecondsAgo: w.lastHeartbeatAt ? Math.round((now - w.lastHeartbeatAt) / 1000) : null,
+        }));
+        const jobs: Record<string, number> = {};
+        for (const st of ["waiting", "awaiting_approval", "queued", "leased", "running"]) jobs[st] = (await cp.store.query<JobRec>(C.jobs, [{ field: "state", eq: st }], { limit: 1000 })).length;
+        const pending = await cp.store.query(C.outbox, [{ field: "delivered", eq: false }], { limit: 1000, orderBy: [{ field: "createdAt", direction: "asc" }] });
+        const failing = pending.filter((x: any) => x.attempts > 0);
+        return send(res, 200, {
+          revision, startedAt, feltdbReady: await cp.store.ready(), casFreeBytes: cas.freeBytes(), workers, activeJobs: jobs,
+          statusOutbox: {
+            pending: pending.length, failing: failing.length,
+            oldestPendingSecondsAgo: pending.length ? Math.round((now - (pending[0] as any).createdAt) / 1000) : null,
+            recentFailures: failing.slice(-10).map((x: any) => ({ repository: x.repository, sha: x.sha, context: x.context, state: x.state, attempts: x.attempts, lastError: x.lastError ?? null })),
+          },
+        });
+      }
 
       if (req.method === "POST" && p === "/webhooks/github") {
         const raw = await readBody(req, 25 * 1024 * 1024);
@@ -123,9 +174,14 @@ export function createControlServer(o: HttpOptions): Server {
         const declared = req.headers["content-length"] ? Number(req.headers["content-length"]) : undefined;
         const { size, created } = await cas.put(req, hex, declared);
         const id = artifactIdOf(hex);
-        try {
-          await cp.store.transact(`artifact:${id}`, [{ collection: C.artifacts, id, requireAbsent: true, value: { size, storedAt: cp.now(), firstUploader: w.id } }]);
-        } catch (e) { if (!(e instanceof PreconditionFailed)) throw e; }
+        // Content-addressed: identical bytes from a later build are the same artifact. The metadata record
+        // is created once; the transaction id is unique per upload so a repeat is a precondition miss,
+        // never an idempotency conflict.
+        if (!(await cp.store.get(C.artifacts, id))) {
+          try {
+            await cp.store.transact(`artifact:${id}:${randomUUID()}`, [{ collection: C.artifacts, id, requireAbsent: true, value: { size, storedAt: cp.now(), firstUploader: w.id } }]);
+          } catch (e) { if (!(e instanceof PreconditionFailed)) throw e; }
+        }
         return send(res, created ? 201 : 200, { digest: hex, size });
       }
       mm = m(/^\/v1\/artifacts\/sha256\/([0-9a-f]{64})$/);

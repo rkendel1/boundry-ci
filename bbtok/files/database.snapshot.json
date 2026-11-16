@@ -1,0 +1,28 @@
+{
+  "rows": [
+    {
+      "capability": "x",
+      "key": "x:1tok",
+      "rust_type": "serde_json::Value",
+      "value": {
+        "a": 1,
+        "id": "1tok"
+      },
+      "unix_ms": 1794869768684,
+      "content_hash": "994b4a7e15d086c34b0f4e0345f171a5d3084d8270129a5d59e92a4e8a1a1361",
+      "flow_ref": null,
+      "deleted": false,
+      "operation": null,
+      "recorded_version": 1
+    }
+  ],
+  "versions": {
+    "feltdb-c200e1852cf0abaa": 1
+  },
+  "content_hash": "3cc232bda8d3a3503f59f481d860258999c82c1f3cc70dccce15709f594224b3",
+  "format_version": 2,
+  "history": {
+    "id": "0582cc2127459266670e42c490688f78",
+    "origin": "genesis"
+  }
+}

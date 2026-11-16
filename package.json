@@ -8,7 +8,9 @@
   },
   "scripts": {
     "inventory": "node tools/inventory/inventory.mjs",
-    "test": "node --test --test-concurrency=1 --test-timeout=60000 test/*.test.ts"
+    "test": "node --test --test-concurrency=1 --test-timeout=60000 test/compile.test.ts test/platform.test.ts",
+    "test:e2e": "node --test --test-timeout=300000 test/e2e.test.ts",
+    "test:deploy": "node --test --test-timeout=1500000 test/deploy.test.ts"
   },
   "dependencies": {
     "ajv": "8.17.1",

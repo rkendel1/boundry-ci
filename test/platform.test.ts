@@ -378,3 +378,22 @@ test("status outbox: a retried stale 'pending' never overwrites a final state", 
   assert.equal(last.get("boundry-ci/j"), "success");
   assert.equal(scm.statuses.filter((x) => x.repository === repo && x.state === "pending").length, 0);
 });
+
+test("artifact upload of bytes already stored (a reproducible rebuild) succeeds and keeps one metadata record", async () => {
+  const { cp } = makeCp(db);
+  const cas = new ContentStore({ root: mkdtempSync(join(tmpdir(), "cas-")), minFreeBytes: 0 });
+  const server = createControlServer({ cp, cas, webhookSecret: "x", operators: {} });
+  await new Promise<void>((r) => server.listen(0, "127.0.0.1", r));
+  try {
+    const url = `http://127.0.0.1:${(server.address() as any).port}`;
+    const tok = await cp.createWorker(`w-up-${process.pid}`, ["linux-small"]);
+    const data = Buffer.from("reproducible build output");
+    const hex = sha256Hex(data);
+    const put = () => fetch(`${url}/v1/artifacts/sha256/${hex}`, { method: "PUT", body: data, headers: { authorization: `Bearer ${tok}` } });
+    assert.equal((await put()).status, 201);
+    assert.equal((await put()).status, 200);
+    const [a, b] = await Promise.all([put(), put()]);
+    assert.deepEqual([a.status, b.status], [200, 200]);
+    assert.ok(await cp.store.get(C.artifacts, `sha256-${hex}`));
+  } finally { server.close(); }
+});

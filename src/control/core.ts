@@ -10,7 +10,7 @@
 import { randomUUID } from "node:crypto";
 import { compile, SpecError, SPEC_PATH, type PlanJob } from "../spec/compile.ts";
 import { sha256Hex, canonicalJson, stableId } from "../canonical.ts";
-import { FeltStore, PreconditionFailed, body, type Rec, type TxOp } from "../store/feltdb.ts";
+import { FeltStore, PreconditionFailed, body, fenceOf, type Rec, type TxOp } from "../store/feltdb.ts";
 import type { ScmAdapter, SourceEvent, CommitState } from "../scm/types.ts";
 import { nextFire } from "./cron.ts";
 
@@ -74,6 +74,11 @@ export class AuthorityError extends Error {}
 export class NotFound extends Error {}
 export class Conflict extends Error {}
 
+/** Repositories under `_boundry/` are platform-internal (canaries). `_` is not valid in a GitHub owner name. */
+export const INTERNAL_OWNER = "_boundry";
+export const isInternal = (repository: string) => repository.startsWith(`${INTERNAL_OWNER}/`);
+const pushOp = (ops: TxOp[], op: TxOp | null) => { if (op) ops.push(op); };
+
 // FeltDB record ids are [A-Za-z0-9_-]{1,128}; natural keys are hashed into that alphabet.
 export const jobIdOf = (runId: string, key: string) => `${runId}-${sha256Hex(key).slice(0, 16)}`;
 export const attemptIdOf = (jobId: string, n: number) => `${jobId}-a${n}`;
@@ -98,7 +103,7 @@ export class ControlPlane {
   // ───────────────────────── intake ─────────────────────────
 
   /** Ingest a source event exactly once (duplicate deliveries return the original run). */
-  async intake(ev: SourceEvent): Promise<{ runId: string | null; duplicate: boolean; state: string }> {
+  async intake(ev: SourceEvent, opts: { source?: string } = {}): Promise<{ runId: string | null; duplicate: boolean; state: string }> {
     const eventKey = `${ev.provider}:${ev.deliveryId}`;
     const eventId = eventIdOf(eventKey);
     const existing = await this.store.get(C.events, eventId);
@@ -106,7 +111,8 @@ export class ControlPlane {
 
     const now = this.now();
     const runId = stableId("run", eventKey);
-    const source = await this.scm.readFile(ev.repository, ev.sha, SPEC_PATH);
+    if (isInternal(ev.repository) && opts.source === undefined) throw new AuthorityError("internal repositories require a supplied pipeline source");
+    const source = opts.source ?? (await this.scm.readFile(ev.repository, ev.sha, SPEC_PATH));
     const ctx = { repository: ev.repository, kind: ev.kind, ref: ev.ref, sha: ev.sha, trusted: ev.trusted, baseBranch: ev.baseBranch, cron: ev.cron };
 
     const ops: TxOp[] = [];
@@ -133,7 +139,7 @@ export class ControlPlane {
       ops.push({ collection: C.events, id: eventId, requireAbsent: true, value: eventRec });
       ops.push(...(await this.#defOps(sourceDigest, ev.repository, source, now)));
       ops.push({ collection: C.runs, id: runId, requireAbsent: true, value: { ...baseRun, pipeline: ev.repository, sourceDigest, planDigest: null, state: "failed", finishedAt: now, reason: e.message } });
-      ops.push(this.#statusOp(runId, ev.repository, ev.sha, "boundry-ci", "failure", "Invalid .boundry/ci.yaml", `${runId}:final`));
+      pushOp(ops, this.#statusOp(runId, ev.repository, ev.sha, "boundry-ci", "failure", "Invalid .boundry/ci.yaml", `${runId}:final`));
       return this.#commitIntake(eventId, ops, runId, "invalid-pipeline");
     }
 
@@ -159,11 +165,11 @@ export class ControlPlane {
         queuedAt: state === "queued" ? now : null, leaseId: null, leaseExpiresAt: null, workerId: null, attemptId: null,
         startedAt: null, finishedAt: state === "failed" ? now : null, reason, cancelRequested: false,
       } });
-      ops.push(state === "failed"
+      pushOp(ops, state === "failed"
         ? this.#statusOp(runId, ev.repository, ev.sha, `boundry-ci/${pj.key}`, "failure", reason!, `${jobIdOf(runId, pj.key)}:final`)
         : this.#statusOp(runId, ev.repository, ev.sha, `boundry-ci/${pj.key}`, "pending", "Queued", `${jobIdOf(runId, pj.key)}:pending`));
     }
-    ops.push(this.#statusOp(runId, ev.repository, ev.sha, "boundry-ci", "pending", `Run ${runId}`, `${runId}:pending`));
+    pushOp(ops, this.#statusOp(runId, ev.repository, ev.sha, "boundry-ci", "pending", `Run ${runId}`, `${runId}:pending`));
     const res = await this.#commitIntake(eventId, ops, runId, "run-created");
     if (!res.duplicate) {
       if (plan.concurrency?.cancelInProgress) await this.#supersede(runId, plan.concurrency.group, now);
@@ -190,7 +196,9 @@ export class ControlPlane {
     return [{ collection: C.defs, id: defIdOf(digest), requireAbsent: true, value: { repository, path: SPEC_PATH, source, recordedAt: now } }];
   }
 
-  #statusOp(runId: string, repository: string, sha: string, context: string, state: CommitState, description: string, key: string): TxOp {
+  /** Commit-status outbox entry; internal runs (canaries) never report to a source provider. */
+  #statusOp(runId: string, repository: string, sha: string, context: string, state: CommitState, description: string, key: string): TxOp | null {
+    if (isInternal(repository)) return null;
     return { collection: C.outbox, id: stableId("ob", key), requireAbsent: true, value: {
       kind: "scm_status", runId, repository, sha, context, state, description: description.slice(0, 140),
       targetUrl: this.publicUrl ? `${this.publicUrl}/v1/runs/${runId}` : null, delivered: false, attempts: 0, createdAt: this.now(),
@@ -233,13 +241,13 @@ export class ControlPlane {
       const ops: TxOp[] = [];
       for (const [key, patch] of changed) {
         const j = byKey.get(key)!;
-        ops.push({ collection: C.jobs, id: j.id, expectedVersion: j.__version, value: { ...body(j), ...patch } });
-        if (patch.state && TERMINAL.has(patch.state)) ops.push(this.#statusOp(runId, run.repository, run.sha, `boundry-ci/${key}`, "error", patch.reason ?? patch.state, `${j.id}:final`));
+        ops.push({ collection: C.jobs, id: j.id, expectedVersionToken: fenceOf(j), value: { ...body(j), ...patch } });
+        if (patch.state && TERMINAL.has(patch.state)) pushOp(ops, this.#statusOp(runId, run.repository, run.sha, `boundry-ci/${key}`, "error", patch.reason ?? patch.state, `${j.id}:final`));
       }
       if (allTerminal && run.state === "running") {
         const runState = finalStates.includes("failed") ? "failed" : finalStates.includes("cancelled") ? "cancelled" : finalStates.every((s) => s === "succeeded") ? "succeeded" : "failed";
-        ops.push({ collection: C.runs, id: runId, expectedVersion: run.__version, value: { ...body(run), state: runState, finishedAt: now } });
-        ops.push(this.#statusOp(runId, run.repository, run.sha, "boundry-ci", runState === "succeeded" ? "success" : runState === "cancelled" ? "error" : "failure", `Run ${runState}`, `${runId}:final`));
+        ops.push({ collection: C.runs, id: runId, expectedVersionToken: fenceOf(run), value: { ...body(run), state: runState, finishedAt: now } });
+        pushOp(ops, this.#statusOp(runId, run.repository, run.sha, "boundry-ci", runState === "succeeded" ? "success" : runState === "cancelled" ? "error" : "failure", `Run ${runState}`, `${runId}:final`));
       }
       if (!ops.length) return;
       try {
@@ -294,6 +302,19 @@ export class ControlPlane {
     return token;
   }
 
+  /**
+   * Operator action used by deployment: create the worker identity if absent (returns its token),
+   * otherwise set its granted capabilities; with rotate, issue a new token (old one stops working).
+   */
+  async ensureWorker(id: string, allowedCapabilities: string[], rotate = false): Promise<string | null> {
+    if (!WORKER_ID.test(id)) throw new Error("worker id must match [a-z0-9][a-z0-9_-]{0,62}");
+    const existing = await this.store.get<WorkerRec>(C.workers, id);
+    if (!existing) return this.createWorker(id, allowedCapabilities);
+    const token = rotate ? `bci_w_${randomUUID().replace(/-/g, "")}${randomUUID().replace(/-/g, "")}` : null;
+    await this.#casLoop<WorkerRec>(C.workers, id, (w) => ({ ...w, allowedCapabilities: [...allowedCapabilities].sort(), disabled: false, ...(token ? { tokenHash: sha256Hex(token) } : {}) }));
+    return token;
+  }
+
   /** Workers advertise capabilities; the effective set is intersected with what the operator granted. */
   async registerWorker(w: WorkerRec, advertised: string[], resources: Record<string, unknown>): Promise<string[]> {
     const effective = advertised.filter((c) => w.allowedCapabilities.includes(c)).sort();
@@ -315,7 +336,7 @@ export class ControlPlane {
       const now = this.now();
       try {
         await this.store.transact(`lease:${leaseId}`, [
-          { collection: C.jobs, id: j.id, expectedVersion: j.__version, value: { ...body(j), state: "leased", attempts: n, leaseId, leaseExpiresAt: now + this.leaseMs, workerId: w.id, attemptId } },
+          { collection: C.jobs, id: j.id, expectedVersionToken: fenceOf(j), value: { ...body(j), state: "leased", attempts: n, leaseId, leaseExpiresAt: now + this.leaseMs, workerId: w.id, attemptId } },
           { collection: C.attempts, id: attemptId, requireAbsent: true, value: {
             jobId: j.id, runId: j.runId, n, workerId: w.id, leaseId, state: "leased", leasedAt: now, startedAt: null, finishedAt: null,
             exitCode: null, reason: null, resultDigest: null, artifacts: [], image: j.spec.image, logChunks: 0,
@@ -331,7 +352,7 @@ export class ControlPlane {
         if (!j.trusted) throw new AuthorityError("untrusted job requested secrets"); // unreachable: rejected at intake
         secrets = await this.secrets.resolve(j.repository, j.spec.secrets);
       }
-      const checkout = await this.scm.checkoutAuth(j.repository);
+      const checkout = isInternal(j.repository) ? null : await this.scm.checkoutAuth(j.repository);
       return {
         attemptId, leaseId, jobId: j.id, runId: j.runId, leaseMs: this.leaseMs, job: j.spec, repository: j.repository, sha: j.sha,
         trusted: j.trusted, checkout, secrets, provenance: { sourceDigest: run?.sourceDigest ?? null, planDigest: run?.planDigest ?? null, ref: run?.ref ?? null },
@@ -356,8 +377,8 @@ export class ControlPlane {
     const now = this.now();
     try {
       await this.store.transact(`start:${attemptId}:${leaseId}`, [
-        { collection: C.jobs, id: cur.job.id, expectedVersion: cur.job.__version, value: { ...body(cur.job), state: "running", startedAt: now, leaseExpiresAt: now + this.leaseMs } },
-        { collection: C.attempts, id: attemptId, expectedVersion: cur.attempt.__version, value: { ...body(cur.attempt), state: "running", startedAt: now } },
+        { collection: C.jobs, id: cur.job.id, expectedVersionToken: fenceOf(cur.job), value: { ...body(cur.job), state: "running", startedAt: now, leaseExpiresAt: now + this.leaseMs } },
+        { collection: C.attempts, id: attemptId, expectedVersionToken: fenceOf(cur.attempt), value: { ...body(cur.attempt), state: "running", startedAt: now } },
       ]);
     } catch (e) { if (!(e instanceof PreconditionFailed)) throw e; return this.start(workerId, attemptId, leaseId); }
     return { ok: true, cancel: cur.job.cancelRequested };
@@ -369,7 +390,7 @@ export class ControlPlane {
       const cur = await this.#currentLease(attemptId, leaseId, workerId);
       if (!cur) return { ok: false, cancel: true };
       try {
-        await this.store.transact(`hb:${randomUUID()}`, [{ collection: C.jobs, id: cur.job.id, expectedVersion: cur.job.__version, value: { ...body(cur.job), leaseExpiresAt: this.now() + this.leaseMs } }]);
+        await this.store.transact(`hb:${randomUUID()}`, [{ collection: C.jobs, id: cur.job.id, expectedVersionToken: fenceOf(cur.job), value: { ...body(cur.job), leaseExpiresAt: this.now() + this.leaseMs } }]);
         await this.#touchWorker(workerId);
         return { ok: true, cancel: cur.job.cancelRequested };
       } catch (e) { if (!(e instanceof PreconditionFailed)) throw e; }
@@ -429,7 +450,7 @@ export class ControlPlane {
       const reason = r.outcome === "succeeded" && !verified ? "declared artifact missing from store or digest mismatch" : r.reason ?? null;
       const attemptState = outcome === "succeeded" ? "succeeded" : outcome === "cancelled" ? "cancelled" : r.timedOut ? "timed_out" : "failed";
       const isCurrent = job.attemptId === attemptId && job.leaseId === leaseId && ACTIVE.has(job.state);
-      const ops: TxOp[] = [{ collection: C.attempts, id: attemptId, expectedVersion: attempt.__version, value: {
+      const ops: TxOp[] = [{ collection: C.attempts, id: attemptId, expectedVersionToken: fenceOf(attempt), value: {
         ...body(attempt), state: isCurrent ? attemptState : `late_${attemptState}`, finishedAt: now, exitCode: r.exitCode ?? null, reason,
         resultDigest, artifacts: r.artifacts ?? [], logChunks: r.logChunks ?? attempt.logChunks,
       } }];
@@ -438,7 +459,7 @@ export class ControlPlane {
         const retryClass = r.timedOut ? "timeout" : outcome === "failed" ? "failure" : null;
         const retry = !job.cancelRequested && retryClass && job.spec.retry.on.includes(retryClass) && job.attempts < job.spec.retry.maxAttempts;
         jobState = job.cancelRequested && outcome !== "succeeded" ? "cancelled" : outcome === "succeeded" ? "succeeded" : retry ? "queued" : outcome === "cancelled" ? "cancelled" : "failed";
-        ops.push({ collection: C.jobs, id: job.id, expectedVersion: job.__version, value: {
+        ops.push({ collection: C.jobs, id: job.id, expectedVersionToken: fenceOf(job), value: {
           ...body(job), state: jobState, leaseId: null, leaseExpiresAt: null, workerId: null,
           queuedAt: jobState === "queued" ? now : job.queuedAt, finishedAt: TERMINAL.has(jobState) ? now : null, reason: jobState === "queued" ? `retry after ${attemptState}` : reason,
         } });
@@ -450,7 +471,7 @@ export class ControlPlane {
         }
         if (TERMINAL.has(jobState)) {
           const st: CommitState = jobState === "succeeded" ? "success" : jobState === "cancelled" ? "error" : "failure";
-          ops.push(this.#statusOp(job.runId, job.repository, job.sha, `boundry-ci/${job.key}`, st, `${jobState}${reason ? `: ${reason}` : ""}`, `${job.id}:final`));
+          pushOp(ops, this.#statusOp(job.runId, job.repository, job.sha, `boundry-ci/${job.key}`, st, `${jobState}${reason ? `: ${reason}` : ""}`, `${job.id}:final`));
         }
       }
       let duplicate = false;
@@ -491,12 +512,12 @@ export class ControlPlane {
       const retry = !j.cancelRequested && j.spec.retry.on.includes(cls) && j.attempts < j.spec.retry.maxAttempts;
       const next: JobState = j.cancelRequested ? "cancelled" : retry ? "queued" : "failed";
       const reason = overTime ? `timed out after ${j.spec.timeoutMinutes}m` : `lease expired (worker ${j.workerId} lost)`;
-      const ops: TxOp[] = [{ collection: C.jobs, id: j.id, expectedVersion: j.__version, value: {
+      const ops: TxOp[] = [{ collection: C.jobs, id: j.id, expectedVersionToken: fenceOf(j), value: {
         ...body(j), state: next, leaseId: null, leaseExpiresAt: null, workerId: null, queuedAt: next === "queued" ? now : j.queuedAt,
         finishedAt: TERMINAL.has(next) ? now : null, reason: next === "queued" ? `retry: ${reason}` : reason,
       } }];
-      if (attempt && !attempt.resultDigest) ops.push({ collection: C.attempts, id: attempt.id, expectedVersion: attempt.__version, value: { ...body(attempt), state: overTime ? "timed_out" : "lost", finishedAt: now, reason } });
-      if (TERMINAL.has(next)) ops.push(this.#statusOp(j.runId, j.repository, j.sha, `boundry-ci/${j.key}`, next === "cancelled" ? "error" : "failure", reason, `${j.id}:final`));
+      if (attempt && !attempt.resultDigest) ops.push({ collection: C.attempts, id: attempt.id, expectedVersionToken: fenceOf(attempt), value: { ...body(attempt), state: overTime ? "timed_out" : "lost", finishedAt: now, reason } });
+      if (TERMINAL.has(next)) pushOp(ops, this.#statusOp(j.runId, j.repository, j.sha, `boundry-ci/${j.key}`, next === "cancelled" ? "error" : "failure", reason, `${j.id}:final`));
       try {
         await this.store.transact(`reap:${j.id}:${j.__version}`, ops);
         overTime ? timedOut++ : expired++;
@@ -529,7 +550,7 @@ export class ControlPlane {
     if (j.spec.approval.approvers.length && !j.spec.approval.approvers.includes(approver)) throw new AuthorityError(`${approver} may not approve ${j.key}`);
     if (!j.trusted) throw new AuthorityError("untrusted runs cannot be approved");
     await this.store.transact(`approve:${jobId}:${j.__version}`, [
-      { collection: C.jobs, id: jobId, expectedVersion: j.__version, value: { ...body(j), state: "queued", queuedAt: this.now() } },
+      { collection: C.jobs, id: jobId, expectedVersionToken: fenceOf(j), value: { ...body(j), state: "queued", queuedAt: this.now() } },
       { collection: C.approvals, id: `${jobId}-${sha256Hex(approver).slice(0, 12)}`, requireAbsent: true, value: { jobId, runId: j.runId, approver, at: this.now(), planDigestAtApproval: (await this.store.get<RunRec>(C.runs, j.runId))?.planDigest } },
     ]);
   }
@@ -549,19 +570,50 @@ export class ControlPlane {
     }
     for (const o of pending) {
       if (newest.get(`${o.repository}\0${o.sha}\0${o.context}`) === o) continue;
-      await this.store.transact(`ob-sup:${o.id}`, [{ collection: C.outbox, id: o.id, expectedVersion: o.__version, value: { ...body(o), delivered: true, superseded: true } }]).catch(() => {});
+      await this.store.transact(`ob-sup:${o.id}`, [{ collection: C.outbox, id: o.id, expectedVersionToken: fenceOf(o), value: { ...body(o), delivered: true, superseded: true } }]).catch(() => {});
     }
     let n = 0;
     for (const o of newest.values()) {
       try {
         await this.scm.reportStatus(o.repository as string, o.sha as string, { context: o.context as string, state: o.state as CommitState, description: o.description as string, targetUrl: (o.targetUrl as string) ?? undefined });
-        await this.store.transact(`ob-done:${o.id}`, [{ collection: C.outbox, id: o.id, expectedVersion: o.__version, value: { ...body(o), delivered: true, deliveredAt: this.now() } }]).catch(() => {});
+        await this.store.transact(`ob-done:${o.id}`, [{ collection: C.outbox, id: o.id, expectedVersionToken: fenceOf(o), value: { ...body(o), delivered: true, deliveredAt: this.now() } }]).catch(() => {});
         n++;
       } catch (e) {
-        await this.store.transact(`ob-fail:${o.id}:${o.__version}`, [{ collection: C.outbox, id: o.id, expectedVersion: o.__version, value: { ...body(o), attempts: (o.attempts as number) + 1, lastError: String((e as Error).message).slice(0, 300) } }]).catch(() => {});
+        await this.store.transact(`ob-fail:${o.id}:${o.__version}`, [{ collection: C.outbox, id: o.id, expectedVersionToken: fenceOf(o), value: { ...body(o), attempts: (o.attempts as number) + 1, lastError: String((e as Error).message).slice(0, 300) } }]).catch(() => {});
       }
     }
     return n;
+  }
+
+  // ───────────────────────── health (deployment verification) ─────────────────────────
+
+  /**
+   * Create a canary run: a real job that must be leased by a real worker, executed in the real
+   * executor, upload a real artifact and complete. No source provider is involved.
+   */
+  async createCanary(image: string, requires: string[] = ["linux-small"]): Promise<string> {
+    const source = canarySpec(image, requires);
+    const r = await this.intake({ provider: "boundry", deliveryId: `canary:${randomUUID()}`, kind: "manual", repository: `${INTERNAL_OWNER}/canary`, ref: "refs/heads/canary", sha: "0".repeat(40), trusted: true, actor: "deploy-verifier" }, { source });
+    if (!r.runId) throw new Error(`canary not created: ${r.state}`);
+    return r.runId;
+  }
+
+  /** Write, read back and delete a probe record; confirm every CI collection is queryable. */
+  async probeStore(): Promise<{ writeReadDeleteMs: number; collections: Record<string, boolean> }> {
+    const id = `probe-${randomUUID()}`;
+    const nonce = randomUUID();
+    const t = performance.now();
+    await this.store.transact(`probe-w:${id}`, [{ collection: "ci_health", id, requireAbsent: true, value: { nonce, at: this.now() } }]);
+    const back = await this.store.get("ci_health", id);
+    if (back?.nonce !== nonce) throw new Error("FeltDB probe read-back mismatch");
+    await this.store.transact(`probe-d:${id}`, [{ collection: "ci_health", id, expectedVersionToken: fenceOf(back) }]);
+    if (await this.store.get("ci_health", id)) throw new Error("FeltDB probe delete not visible");
+    const ms = performance.now() - t;
+    const collections: Record<string, boolean> = {};
+    for (const c of Object.values(C)) {
+      try { await this.store.query(c, [], { limit: 1 }); collections[c] = true; } catch { collections[c] = false; }
+    }
+    return { writeReadDeleteMs: +ms.toFixed(1), collections };
   }
 
   // ───────────────────────── scheduled pipelines ─────────────────────────
@@ -595,7 +647,7 @@ export class ControlPlane {
         await this.intake({ provider: "boundry", deliveryId: `schedule:${s.id}:${slot}`, kind: "schedule", repository: s.repository as string, ref: `refs/heads/${s.branch}`, sha, trusted: true, cron: s.cron as string, actor: "scheduler" });
         fired++;
       }
-      await this.store.transact(`sched-adv:${s.id}:${slot}`, [{ collection: C.schedules, id: s.id, expectedVersion: s.__version, value: { ...body(s), lastFiredAt: slot, nextFireAt: nextFire(s.cron as string, Math.max(now, slot)) } }]).catch((e) => { if (!(e instanceof PreconditionFailed)) throw e; });
+      await this.store.transact(`sched-adv:${s.id}:${slot}`, [{ collection: C.schedules, id: s.id, expectedVersionToken: fenceOf(s), value: { ...body(s), lastFiredAt: slot, nextFireAt: nextFire(s.cron as string, Math.max(now, slot)) } }]).catch((e) => { if (!(e instanceof PreconditionFailed)) throw e; });
     }
     return fired;
   }
@@ -607,7 +659,7 @@ export class ControlPlane {
       const next = f(cur);
       if (next === cur) return cur;
       try {
-        await this.store.transact(`cas:${collection}:${id}:${cur.__version}:${randomUUID()}`, [{ collection, id, expectedVersion: cur.__version, value: body(next as Rec) }]);
+        await this.store.transact(`cas:${collection}:${id}:${cur.__version}:${randomUUID()}`, [{ collection, id, expectedVersionToken: fenceOf(cur), value: body(next as Rec) }]);
         return next;
       } catch (e) { if (!(e instanceof PreconditionFailed)) throw e; }
     }
@@ -617,7 +669,7 @@ export class ControlPlane {
 
 export interface LeaseGrant {
   attemptId: string; leaseId: string; jobId: string; runId: string; leaseMs: number; job: PlanJob;
-  repository: string; sha: string; trusted: boolean; checkout: { url: string; header?: string };
+  repository: string; sha: string; trusted: boolean; checkout: { url: string; header?: string } | null;
   secrets: Record<string, string>; provenance: { sourceDigest: string | null; planDigest: string | null; ref: string | null };
 }
 
@@ -628,4 +680,30 @@ export interface AttemptResult {
   timedOut?: boolean;
   logChunks?: number;
   artifacts?: { name: string; digest: string; size: number }[];
+}
+
+/** The canary pipeline. Exercises: lease, executor isolation (non-root, no network), logs, artifact upload. */
+export function canarySpec(image: string, requires: string[]): string {
+  return [
+    "version: 1",
+    "name: boundry-ci-canary",
+    "on: { manual: {} }",
+    "jobs:",
+    "  canary:",
+    `    image: "${image}"`,
+    `    requires: [${requires.join(", ")}]`,
+    "    network: none",
+    "    timeout_minutes: 3",
+    "    resources: { cpus: 0.5, memory_mb: 256, disk_mb: 64, pids: 64 }",
+    "    steps:",
+    "      - name: isolation",
+    "        run: |",
+    "          test \"$(id -u)\" != 0",
+    "          echo \"uid=$(id -u)\"",
+    "      - name: artifact",
+    "        run: |",
+    "          printf 'boundry-ci canary\\n' > canary.txt",
+    "    artifacts: [{ name: canary.txt, path: canary.txt, retention_days: 1 }]",
+    "",
+  ].join("\n");
 }

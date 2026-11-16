@@ -5,6 +5,7 @@ import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdtempSync, rmSync, createReadStream, statSync } from "node:fs";
 import { join } from "node:path";
+import { hostname } from "node:os";
 import { OciExecutor, safeJoin } from "./executor.ts";
 import type { LeaseGrant, AttemptResult } from "../control/core.ts";
 
@@ -51,19 +52,24 @@ export class WorkerAgent {
   }
 
   async register(): Promise<string[]> {
-    const r = await this.#call("POST", "/v1/worker/register", { capabilities: this.o.capabilities, resources: {} });
+    const r = await this.#call("POST", "/v1/worker/register", { capabilities: this.o.capabilities, resources: { revision: process.env.BCI_REVISION ?? "unknown", pid: process.pid, hostname: hostname() } });
     if (r.status !== 200) throw new Error(`register failed: ${r.status} ${JSON.stringify(r.json)}`);
     return r.json.capabilities;
   }
 
   stop() { this.#stopped = true; }
 
+  /** Lease and run jobs until stop() is called; a job in progress always finishes (graceful drain). */
   async runForever(): Promise<void> {
     await this.register();
+    let lastRegister = Date.now();
     while (!this.#stopped) {
       const did = await this.runOnce().catch((e) => { this.#log("worker loop error", { error: String(e.message) }); return false; });
-      if (!did) await sleep(this.o.pollMs ?? 2_000);
+      // Re-register periodically: it refreshes the worker's liveness record even when idle.
+      if (Date.now() - lastRegister > 30_000) { await this.register().catch(() => {}); lastRegister = Date.now(); }
+      if (!did && !this.#stopped) await sleep(this.o.pollMs ?? 2_000);
     }
+    this.#log("worker drained");
   }
 
   /** Lease and execute at most one job. Returns true if a job was processed. */
@@ -96,9 +102,10 @@ export class WorkerAgent {
     const workspace = mkdtempSync(join(this.o.workRoot, "ws-"));
     let result: AttemptResult;
     try {
-      logs.write(`::boundry-ci:: attempt ${g.attemptId} job ${g.job.key} image ${g.job.image}\n`);
+      logs.write(`::boundry-ci:: attempt ${g.attemptId} job ${g.job.key} image ${g.job.image} worker-revision ${process.env.BCI_REVISION ?? "unknown"}\n`);
       logs.write(`::boundry-ci:: source ${g.repository}@${g.sha} definition ${g.provenance.sourceDigest} plan ${g.provenance.planDigest}\n`);
-      await checkout(g, workspace);
+      if (g.checkout) await checkout(g, workspace);
+      else await run("chmod", ["-R", "a+rwX", workspace]); // internal canary: empty workspace, no source
       const ex = await this.exec.run({ job: g.job, workspace, repository: g.repository, trusted: g.trusted, secrets: g.secrets, onOutput: (t) => logs.write(t), signal: abort.signal });
       let artifacts: AttemptResult["artifacts"] = [];
       let outcome: AttemptResult["outcome"] = ex.cancelled ? "cancelled" : ex.exitCode === 0 ? "succeeded" : "failed";

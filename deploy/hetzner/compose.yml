@@ -1,12 +1,13 @@
-# Boundry CI on the shared Hetzner host. A SEPARATE compose project (/opt/boundry-ci): it never edits
-# /opt/boundry/compose.yml, the `boundry` network, or any existing volume. Conventions follow
-# appboundry/deploy/boundry (loopback-only ports in 21000-21099, read-only containers, dedicated uids,
-# immutable image tags, secrets in 0600 files under /etc/boundry-ci).
+# Boundry CI on the shared Hetzner host. A SEPARATE compose project: it never edits /opt/boundry,
+# the platform `boundry` network, or any existing volume. Conventions follow appboundry/deploy/boundry
+# (loopback-only ports, read-only containers, dedicated uids, immutable image tags verified by config
+# digest, secrets in 0440/0600 files). Every ${...} value is rendered per release into
+# /opt/boundry-ci/releases/<id>/release.env by `boundry-ci deploy` — this file is not run by hand.
 #
-# FeltDB: a DEDICATED feltdb-server instance for CI state, using the same FeltDB image as the platform.
-# Reason (evidence): feltdb-server serializes reads and writes on one lock (crates/feltdb-server/src/main.rs
-# ~9541), so CI log/lease traffic on the production instances would contend with production workloads.
-# Same product, same backup tooling, separate failure domain.
+# FeltDB: a DEDICATED instance for CI state, same FeltDB image as the platform. Evidence: feltdb-server
+# serializes every read and write on one mutex (crates/feltdb/src/lib.rs `inner: Arc<Mutex<Inner>>`);
+# measured with tools/bench/feltdb-contention.ts, 16 concurrent CI log writers raised a small read's p50
+# from 1.2 ms to 19.5 ms with stalls up to 3.7 s. CI must not share that lock with production.
 name: boundry-ci
 
 x-hardening: &hardening
@@ -23,8 +24,7 @@ x-hardening: &hardening
 services:
   ci-feltdb:
     <<: *hardening
-    image: ${BCI_FELTDB_IMAGE:?set the same immutable FeltDB image tag the platform uses}
-    container_name: boundry-ci-feltdb
+    image: ${BCI_FELTDB_IMAGE:?}
     user: "21031:21031"
     mem_limit: 768m
     memswap_limit: 768m
@@ -36,46 +36,47 @@ services:
       FELTDB_BACKUP_DIR: /srv/feltdb/ci/backups
       FELTDB_BIND_ADDR: 0.0.0.0:8080
       FELTDB_NAMESPACE: boundry-ci
-    env_file: /etc/boundry-ci/secrets/feltdb.env   # FELTDB_MASTER_KEY, FELTDB_SESSION_SECRET (names only here)
-    volumes: ["/var/lib/boundry-ci/feltdb:/srv/feltdb/ci"]
-    ports: ["127.0.0.1:21031:8080"]
-    networks: [boundry-ci]
+    env_file: ${BCI_ETC:?}/secrets/feltdb.env   # FELTDB_MASTER_KEY, FELTDB_SESSION_SECRET, FELTDB_GRANT_SIGNING_KEY
+    volumes: ["${BCI_VAR:?}/feltdb:/srv/feltdb/ci"]
+    ports: ["127.0.0.1:${BCI_PORT_FELTDB:?}:8080"]
+    networks: [ci]
     healthcheck: { test: ["CMD", "curl", "--fail", "--silent", "http://127.0.0.1:8080/ready"], interval: 15s, timeout: 5s, retries: 4, start_period: 20s }
 
   ci-control:
     <<: *hardening
-    image: ${BCI_CONTROL_IMAGE:?set the immutable boundry-ci image tag}
-    container_name: boundry-ci-control
+    image: ${BCI_CONTROL_IMAGE:?}
     user: "21030:21030"
     mem_limit: 512m
     memswap_limit: 512m
     cpus: 1.0
     pids_limit: 128
-    depends_on: { ci-feltdb: { condition: service_healthy } }
+    depends_on: [ci-feltdb]
     environment:
+      BCI_REVISION: ${BCI_REVISION:?}
       BCI_LISTEN: 0.0.0.0:8080
-      BCI_FELTDB_URL: http://boundry-ci-feltdb:8080
+      BCI_FELTDB_URL: http://ci-feltdb:8080
       BCI_FELTDB_TOKEN_FILE: /run/secrets/feltdb-token
       BCI_WEBHOOK_SECRET_FILE: /run/secrets/github-webhook
       BCI_OPERATOR_TOKENS_FILE: /run/secrets/operators
-      BCI_GITHUB_APP_ID: ${BCI_GITHUB_APP_ID:?}
-      BCI_GITHUB_PRIVATE_KEY_FILE: /run/secrets/github-app.pem
-      BCI_GITHUB_INSTALLATIONS: ${BCI_GITHUB_INSTALLATIONS:?owner=installationId}
+      BCI_GITHUB_APP_ID: ${BCI_GITHUB_APP_ID}
+      BCI_GITHUB_PRIVATE_KEY_FILE: ${BCI_GITHUB_KEY_FILE}
+      BCI_GITHUB_INSTALLATIONS: ${BCI_GITHUB_INSTALLATIONS}
       BCI_SECRETS_DIR: /run/repo-secrets
       BCI_DATA_DIR: /srv/boundry-ci
-      BCI_PUBLIC_URL: https://${BCI_PUBLIC_HOST:?}
-      BCI_CAS_MIN_FREE_BYTES: "21474836480"   # refuse artifact writes below 20 GiB free on the volume
+      BCI_PUBLIC_URL: ${BCI_PUBLIC_URL}
+      BCI_CAS_MIN_FREE_BYTES: ${BCI_CAS_MIN_FREE_BYTES:?}
+      BCI_LEASE_MS: ${BCI_LEASE_MS:?}
+      BCI_CANARY_IMAGE: ${BCI_CANARY_IMAGE:?}
     volumes:
-      - /var/lib/boundry-ci/data:/srv/boundry-ci
-      - /etc/boundry-ci/secrets/control:/run/secrets:ro
-      - /etc/boundry-ci/repo-secrets:/run/repo-secrets:ro
-    ports: ["127.0.0.1:21030:8080"]
-    networks: [boundry-ci]
+      - ${BCI_VAR:?}/data:/srv/boundry-ci
+      - ${BCI_ETC:?}/secrets/control:/run/secrets:ro
+      - ${BCI_ETC:?}/repo-secrets:/run/repo-secrets:ro
+    ports: ["127.0.0.1:${BCI_PORT_CONTROL:?}:8080"]
+    networks: [ci]
     healthcheck: { test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8080/readyz').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"], interval: 15s, timeout: 5s, retries: 4, start_period: 10s }
 
 networks:
-  boundry-ci:
-    name: boundry-ci
+  ci:
+    name: ${BCI_NETWORK:?}
     driver: bridge
-    driver_opts: { com.docker.network.bridge.name: br-boundry-ci }
-    ipam: { config: [{ subnet: 172.31.8.0/24 }] }   # confirm free with ci-preflight.sh before first start
+    ipam: { config: [{ subnet: "${BCI_SUBNET:?}" }] }

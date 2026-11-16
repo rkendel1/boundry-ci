@@ -1,0 +1,29 @@
+[
+  {
+    "id": "nV7SHjegFl98",
+    "name": "c",
+    "hash": "sha256:6ecdbabbb1a9daf7c39f47702cc9f1d8deabd3ec4a404990274ef02f3e653dcd",
+    "scopes": [
+      "state:read",
+      "state:write"
+    ],
+    "namespaces": [
+      "boundry-ci"
+    ],
+    "revoked": false,
+    "worker_id": null
+  },
+  {
+    "id": "rdxozAtMJBtr",
+    "name": "b",
+    "hash": "sha256:765515e5ca3f94b8a300b28fc982e304dbb52f5da7b371e7b11cb8ac1fbf6082",
+    "scopes": [
+      "cluster:write"
+    ],
+    "namespaces": [
+      "boundry-ci"
+    ],
+    "revoked": false,
+    "worker_id": null
+  }
+]

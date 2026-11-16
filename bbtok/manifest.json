@@ -1,0 +1,32 @@
+{
+  "format": 1,
+  "created_ms": 1794869768782,
+  "entries": [
+    {
+      "path": "files/api-keys.json",
+      "bytes": 568,
+      "sha256": "8693ff6a7aba2a46cc5557d9c84bb111790311ebd0d19bedb87176a936797f8a"
+    },
+    {
+      "path": "files/audit.log",
+      "bytes": 1143,
+      "sha256": "6738d28110cc66fb1b6d7e9c70a63dcae40cae2fdf415781da6001151544c9e5"
+    },
+    {
+      "path": "files/database.snapshot.json",
+      "bytes": 658,
+      "sha256": "ce7a61d680e3e143b7d796987d1e6a46682ba99ad34ef645ed4f7d8c012e795b"
+    },
+    {
+      "path": "files/state.cluster.json",
+      "bytes": 39,
+      "sha256": "88ddf66d0e455634845b1c56156804877f25b64eaac699edd5f0bd019464e120"
+    }
+  ],
+  "source": {
+    "data": "/tmp/claude-0/sp/scopes/d/feltdb.log",
+    "state_sha256": "ce7a61d680e3e143b7d796987d1e6a46682ba99ad34ef645ed4f7d8c012e795b",
+    "server_version": "0.6.1",
+    "durable_format": 2
+  }
+}
