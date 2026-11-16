@@ -1,0 +1,35 @@
+# Boundry CI's own pipeline (dogfood). Native contract: schema/ci.v1.schema.json
+version: 1
+name: boundry-ci
+on:
+  push: { branches: [main, "claude/**"] }
+  pull_request: { branches: [main] }
+  manual: {}
+concurrency: { group: "${repository}/${ref}", cancel_in_progress: true }
+defaults:
+  image: mirror.gcr.io/library/node:22-bookworm-slim
+  requires: [linux-small]
+  timeout_minutes: 10
+  resources: { cpus: 2, memory_mb: 2048, disk_mb: 2048 }
+jobs:
+  static:
+    name: static checks (no network)
+    steps:
+      - name: pipeline schema is valid JSON
+        run: node -e "JSON.parse(require('fs').readFileSync('schema/ci.v1.schema.json','utf8'))"
+      - name: shell scripts parse
+        run: for f in tools/*.sh; do sh -n "$f"; done
+  unit:
+    name: unit and compiler tests
+    needs: [static]
+    network: egress
+    cache: [{ name: npm, path: /tmp/.npm, key_files: [package-lock.json] }]
+    env: { npm_config_cache: /tmp/.npm }
+    steps:
+      - name: install (lockfile, no scripts)
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: compiler tests
+        run: node --test test/compile.test.ts
+      - name: pack
+        run: mkdir -p out && npm pack --pack-destination out --silent > out/name.txt && mv "out/$(cat out/name.txt)" out/boundry-ci.tgz
+    artifacts: [{ name: boundry-ci.tgz, path: out/boundry-ci.tgz, retention_days: 90 }]

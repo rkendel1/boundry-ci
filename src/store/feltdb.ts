@@ -75,7 +75,7 @@ export class FeltStore {
     let cursor: string | undefined;
     for (;;) {
       const { status, json } = await this.#req("POST", "/query", {
-        collection, where, limit: opts.limit ?? 500, ...(opts.orderBy ? { orderBy: opts.orderBy } : {}), ...(cursor ? { cursor } : {}),
+        collection, where, limit: Math.min(1000, Math.max(1, (opts.limit ?? 500) - out.length)), ...(opts.orderBy ? { orderBy: opts.orderBy } : {}), ...(cursor ? { cursor } : {}),
       });
       if (status !== 200) throw this.#error(status, json);
       for (const r of json.records) { const { recordId: _r, ...rest } = r; out.push(rest as T); }

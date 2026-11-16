@@ -22,14 +22,20 @@ export interface ExecInput {
 }
 export interface ExecResult { exitCode: number | null; timedOut: boolean; cancelled: boolean; diskExceeded: boolean; reason: string | null }
 
-export interface ExecutorOptions { cli?: string; jobUid?: string; cacheSchema?: string; diskPollMs?: number }
+export interface ExecutorOptions {
+  cli?: string; jobUid?: string; cacheSchema?: string; diskPollMs?: number;
+  /** Operator setting: CA bundle of the worker's egress proxy, mounted read-only for `network: egress` jobs only. */
+  egressCaFile?: string;
+}
 
 export class OciExecutor {
   readonly cli: string;
   readonly jobUid: string;
   readonly cacheSchema: string;
   readonly diskPollMs: number;
+  readonly egressCaFile: string | undefined;
   constructor(o: ExecutorOptions = {}) {
+    this.egressCaFile = o.egressCaFile;
     this.cli = o.cli ?? "docker";
     this.jobUid = o.jobUid ?? "65534:65534";
     this.cacheSchema = o.cacheSchema ?? "1";
@@ -46,6 +52,15 @@ export class OciExecutor {
       h.update(p && existsSync(p) ? readFileSync(p) : Buffer.from("<absent>"));
     }
     return `bci-cache-${trusted ? "t" : "u"}-${h.digest("hex").slice(0, 32)}`;
+  }
+
+  /** New volumes are root-owned; hand them to the job uid with a fixed, network-less command. */
+  async #prepareVolume(vol: string, image: string): Promise<void> {
+    const exists = await new Promise<boolean>((r) => spawn(this.cli, ["volume", "inspect", vol], { stdio: "ignore" }).on("close", (c) => r(c === 0)));
+    if (exists) return;
+    await new Promise<void>((res, rej) => spawn(this.cli, ["run", "--rm", "--network", "none", "--cap-drop", "ALL", "--cap-add", "CHOWN", "--user", "0:0",
+      "--label", "com.boundry.owner=boundry-ci", "-v", `${vol}:/c`, "--entrypoint", "chown", image, this.jobUid, "/c"], { stdio: "ignore" })
+      .on("close", (c) => (c === 0 ? res() : rej(new Error(`cache volume init failed (${c})`)))));
   }
 
   async run(x: ExecInput): Promise<ExecResult> {
@@ -74,9 +89,16 @@ export class OciExecutor {
       "-v", `${x.workspace}:/workspace:rw`, "-w", "/workspace",
       "--label", "com.boundry.owner=boundry-ci",
     ];
+    if (job.network === "egress" && this.egressCaFile) {
+      args.push("-v", `${this.egressCaFile}:/etc/boundry-ci/egress-ca.crt:ro`, "-e", "NODE_EXTRA_CA_CERTS=/etc/boundry-ci/egress-ca.crt", "-e", "PIP_CERT=/etc/boundry-ci/egress-ca.crt", "-e", "CARGO_HTTP_CAINFO=/etc/boundry-ci/egress-ca.crt");
+    }
     // Release/deploy jobs never mount caches: their inputs must come from verified artifacts only.
     if (!job.permissions.release && !job.permissions.deploy) {
-      for (const c of job.cache) args.push("-v", `${this.cacheVolume(x.repository, job, c, x.workspace, x.trusted)}:${c.path}:rw`);
+      for (const c of job.cache) {
+        const vol = this.cacheVolume(x.repository, job, c, x.workspace, x.trusted);
+        await this.#prepareVolume(vol, job.image);
+        args.push("-v", `${vol}:${c.path}:rw`);
+      }
     }
     args.push(job.image, "sh", "/workspace/.boundry-ci-steps.sh");
 
