@@ -361,3 +361,20 @@ test("invalid pipeline definitions are recorded as failed runs with evidence", a
   assert.match(run.reason!, /invalid/);
   assert.ok(await cp.store.get(C.defs, "def_" + run.sourceDigest!), "definition source retained by digest");
 });
+
+test("status outbox: a retried stale 'pending' never overwrites a final state", async () => {
+  const { cp, scm } = makeCp(db);
+  const { repo, s } = await newRepo(scm, `version: 1\non: {push: {}}\njobs: { j: { image: alpine, steps: [{run: "true"}] } }\n`);
+  await cp.intake(push(repo, s));
+  scm.failStatus = true;
+  await cp.deliverStatuses(); // pending fails to deliver (GitHub down)
+  const w = await worker(cp);
+  await drive(cp, w);
+  scm.failStatus = false;
+  await cp.deliverStatuses();
+  await cp.deliverStatuses();
+  const last = new Map(scm.statuses.filter((x) => x.repository === repo).map((x) => [x.context, x.state]));
+  assert.equal(last.get("boundry-ci"), "success");
+  assert.equal(last.get("boundry-ci/j"), "success");
+  assert.equal(scm.statuses.filter((x) => x.repository === repo && x.state === "pending").length, 0);
+});

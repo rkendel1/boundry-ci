@@ -537,8 +537,22 @@ export class ControlPlane {
   /** Report pending commit statuses. Durable outbox: survives crashes, retried until delivered. */
   async deliverStatuses(limit = 100): Promise<number> {
     const pending = await this.store.query(C.outbox, [{ field: "delivered", eq: false }], { limit, orderBy: [{ field: "createdAt", direction: "asc" }] });
-    let n = 0;
+    // Only the newest status per (repository, sha, context) is delivered; older ones are superseded,
+    // so a retried stale "pending" can never overwrite a final state.
+    const newest = new Map<string, Rec>();
+    const rank = (o: Rec) => [o.state === "pending" ? 0 : 1, o.createdAt as number];
+    const newer = (a: Rec, b: Rec) => { const [x, y] = [rank(a), rank(b)]; return x[0] !== y[0] ? x[0] > y[0] : x[1] >= y[1]; };
     for (const o of pending) {
+      const k = `${o.repository}\0${o.sha}\0${o.context}`;
+      const cur = newest.get(k);
+      if (!cur || newer(o, cur)) newest.set(k, o);
+    }
+    for (const o of pending) {
+      if (newest.get(`${o.repository}\0${o.sha}\0${o.context}`) === o) continue;
+      await this.store.transact(`ob-sup:${o.id}`, [{ collection: C.outbox, id: o.id, expectedVersion: o.__version, value: { ...body(o), delivered: true, superseded: true } }]).catch(() => {});
+    }
+    let n = 0;
+    for (const o of newest.values()) {
       try {
         await this.scm.reportStatus(o.repository as string, o.sha as string, { context: o.context as string, state: o.state as CommitState, description: o.description as string, targetUrl: (o.targetUrl as string) ?? undefined });
         await this.store.transact(`ob-done:${o.id}`, [{ collection: C.outbox, id: o.id, expectedVersion: o.__version, value: { ...body(o), delivered: true, deliveredAt: this.now() } }]).catch(() => {});
