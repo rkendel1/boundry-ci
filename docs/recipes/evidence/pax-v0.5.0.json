@@ -1,0 +1,357 @@
+{
+  "example": "pax-v0.5.0",
+  "repository": "rkendel1/pax",
+  "commit": "c3fb3b4c86b14faa4cbc196d421276f02e9100ef",
+  "overlay": {
+    "recipe": ".boundry/recipes/check.md",
+    "from": "examples/recipes/pax/check.md"
+  },
+  "durationSeconds": 65,
+  "approvals": [],
+  "statusesCaptured": [
+    {
+      "context": "boundry/check/builds",
+      "state": "success",
+      "description": "succeeded"
+    },
+    {
+      "context": "boundry/check/tests",
+      "state": "failure",
+      "description": "failed: exit code 101"
+    },
+    {
+      "context": "boundry/check/formatted",
+      "state": "success",
+      "description": "succeeded"
+    },
+    {
+      "context": "boundry/check/lint",
+      "state": "success",
+      "description": "succeeded"
+    },
+    {
+      "context": "boundry/check",
+      "state": "failure",
+      "description": "Run failed"
+    }
+  ],
+  "evidence": {
+    "run": {
+      "actor": "example",
+      "cancelInProgress": true,
+      "cancelRequested": false,
+      "concurrencyGroup": "rkendel1/pax/refs/pull/1/head/check",
+      "createdAt": 1794873452158,
+      "definitionPath": ".boundry/recipes/check.md",
+      "downstream": [],
+      "eventId": "ev_9ac7491332747d2417e986b4b258414e1c36a278",
+      "explanation": "# Check my changes\n\nKeep pax buildable, tested, tidy and free of lint warnings.\n\nRecipe `.boundry/recipes/check.md` · sha256:4eb567576fdc · compiled by boundry-recipes/1.0.0 with boundry-capabilities/1.0.1 · definition 85bce8d81e7b\n\n## Runs when\n- someone opens or updates a pull request\n- new commits reach `main`\n\n## Project\n- Rust project (`pax`) in the repository root (evidence: `Cargo.lock`, `Cargo.toml`)\n\n## Checks (4 jobs at the same time)\n1. **The application builds** — runs `cargo build --locked --release`\n   Rust (stable, with rustfmt and clippy) · installs dependencies first · internet: yes · keeps `build-output.tar` · capability `check.builds@1.0.0`\n2. **The code is formatted** — runs `cargo fmt --check`\n   Rust (stable, with rustfmt and clippy) · internet: no · capability `check.formatted@1.0.0`\n3. **The linter passes** — runs `cargo clippy` with warnings treated as errors\n   Rust (stable, with rustfmt and clippy) · installs dependencies first · internet: yes · capability `check.lint@1.0.0`\n4. **The tests pass** — runs `cargo test --locked`\n   Rust (stable, with rustfmt and clippy) · installs dependencies first · internet: yes · keeps `test-results.txt` · capability `check.tests@1.0.0`\n\n## Authority\n- Permissions: none\n- Secrets: none\n- Approvals: none\n- Publishes or deploys: nothing\n- Proposed changes from forks never receive secrets, release/deploy access or trusted caches.\n\n## Kept\n- `build-output.tar` from “The application builds” for 30 days\n- `test-results.txt` from “The tests pass” for 30 days (also when tests fail)\n- The record: this recipe, its compiled plan, project facts, every attempt's log, inputs and outputs (always)\n\n## Afterward\n- The result is reported on the commit/pull request as statuses\n",
+      "finishedAt": 1794873516991,
+      "id": "run_a2ec9581fcb10625d2f07c0f",
+      "kind": "pull_request",
+      "pipeline": "Check my changes",
+      "planDigest": "b665f393d217d680e4e20975dedcf2e349dc13efde8fd0181f1ef7ebc7cd5ed7",
+      "reason": null,
+      "recipe": {
+        "capabilities": {
+          "after.report": "1.0.0",
+          "check.builds": "1.0.0",
+          "check.formatted": "1.0.0",
+          "check.lint": "1.0.0",
+          "check.tests": "1.0.0",
+          "keep.build-output": "1.0.0",
+          "keep.evidence": "1.0.0",
+          "keep.test-results": "1.0.0",
+          "trigger.branch-updated": "1.0.0",
+          "trigger.change-proposed": "1.0.0"
+        },
+        "catalog": "boundry-capabilities/1.0.1",
+        "compiler": "boundry-recipes/1.0.0",
+        "definitionDigest": "85bce8d81e7b7027af0891f5a04dfceb67c64be7aa1181203d557871f8f42ba0",
+        "facts": {
+          "dir": ".",
+          "ecosystems": [
+            "rust"
+          ],
+          "evidence": [
+            "Cargo.lock",
+            "Cargo.toml"
+          ],
+          "rust": {
+            "edition": "2024",
+            "lockfile": true,
+            "packageName": "pax",
+            "workspace": false
+          }
+        },
+        "factsDigest": "49349749245f19fd0feeb9bfed17ca46c8b0337b5ee977c0dcd870be6693cefe",
+        "path": ".boundry/recipes/check.md",
+        "sourceDigest": "4eb567576fdc7561dbbf4773c64c409fd94a7833567e7540cfb6c78884adb8ba",
+        "title": "Check my changes"
+      },
+      "ref": "refs/pull/1/head",
+      "repository": "rkendel1/pax",
+      "sha": "c3fb3b4c86b14faa4cbc196d421276f02e9100ef",
+      "sourceDigest": "4eb567576fdc7561dbbf4773c64c409fd94a7833567e7540cfb6c78884adb8ba",
+      "state": "failed",
+      "statusPrefix": "boundry/check",
+      "trusted": true
+    },
+    "trigger": {
+      "kind": "pull_request",
+      "ref": "refs/pull/1/head",
+      "sha": "c3fb3b4c86b14faa4cbc196d421276f02e9100ef",
+      "actor": "example",
+      "provider": "github",
+      "deliveryId": "example-pax-c3fb3b4c86b14faa4cbc196d421276f02e9100ef",
+      "receivedAt": 1794873452158,
+      "trusted": true
+    },
+    "definition": {
+      "path": ".boundry/recipes/check.md",
+      "sha256": "4eb567576fdc7561dbbf4773c64c409fd94a7833567e7540cfb6c78884adb8ba",
+      "source": "# Check my changes\n\nKeep pax buildable, tested, tidy and free of lint warnings.\n\n## When this happens\n- Someone proposes a change or updates the main branch.\n\n## Make sure\n- The application builds.\n- The tests pass.\n- The code is formatted.\n- The linter passes.\n\n## Keep\n- The build output.\n- The test results.\n- A record of what was checked.\n\n## Afterward\n- Report the result on the change.\n"
+    },
+    "jobs": [
+      {
+        "key": "builds",
+        "name": "The application builds",
+        "state": "succeeded",
+        "reason": null,
+        "capabilities": [
+          "check.builds@1.0.0",
+          "toolchain.rust1"
+        ],
+        "image": "boundry-toolchain/rust:1",
+        "imageDigest": "sha256:add5bb0d051999904be90aa449f956c4b221dfe24ea0b3d668db66b95dbd3103",
+        "needs": [],
+        "approval": {
+          "approvers": [],
+          "required": false
+        },
+        "permissions": {
+          "deploy": false,
+          "release": false
+        },
+        "attempts": [
+          {
+            "id": "run_a2ec9581fcb10625d2f07c0f-8459419d4cfe6b1a-a1",
+            "n": 1,
+            "worker": "example-w2",
+            "state": "succeeded",
+            "exitCode": 0,
+            "reason": null,
+            "startedAt": 1794873452256,
+            "finishedAt": 1794873506350,
+            "inputs": [],
+            "artifacts": [
+              {
+                "digest": "604273e32f7871ae5748cf60340d5a2d2f66b17c4872f0da133678f51c97c0a2",
+                "name": "build-output.tar",
+                "size": 4003840,
+                "verifiedInStore": true
+              }
+            ],
+            "logChunks": 13,
+            "logTail": "   Compiling serde v1.0.229\n   Compiling hashbrown v0.17.1\n   Compiling serde_derive v1.0.229\n   Compiling equivalent v1.0.3\n   Compiling indexmap v2.14.2\n   Compiling zmij v1.0.23\n   Compiling serde_json v1.0.151\n   Compiling winnow v0.7.15\n   Compiling toml_datetime v0.6.11\n   Compiling serde_spanned v0.6.9\n   Compiling toml_write v0.1.2\n   Compiling itoa v1.0.18\n   Compiling toml_edit v0.22.27\n   Compiling unsafe-libyaml v0.2.11\n   Compiling memchr v2.8.3\n   Compiling ryu v1.0.23\n   Compiling serde_yaml v0.9.34+deprecated\n   Compiling toml v0.8.23\n   Compiling syn v2.0.119\n   Compiling pax v0.5.0 (/workspace)\n    Finished `release` profile [optimized] target(s) in 52.43s\n::step:: Keep the build output\n::boundry-ci:: artifact build-output.tar sha256:604273e32f7871ae5748cf60340d5a2d2f66b17c4872f0da133678f51c97c0a2 (4003840 bytes)\n::boundry-ci:: succeeded\n",
+            "logBytes": 1547
+          }
+        ]
+      },
+      {
+        "key": "formatted",
+        "name": "The code is formatted",
+        "state": "succeeded",
+        "reason": null,
+        "capabilities": [
+          "check.formatted@1.0.0",
+          "toolchain.rust1"
+        ],
+        "image": "boundry-toolchain/rust:1",
+        "imageDigest": "sha256:add5bb0d051999904be90aa449f956c4b221dfe24ea0b3d668db66b95dbd3103",
+        "needs": [],
+        "approval": {
+          "approvers": [],
+          "required": false
+        },
+        "permissions": {
+          "deploy": false,
+          "release": false
+        },
+        "attempts": [
+          {
+            "id": "run_a2ec9581fcb10625d2f07c0f-def3a35ce8c8037a-a1",
+            "n": 1,
+            "worker": "example-w1",
+            "state": "succeeded",
+            "exitCode": 0,
+            "reason": null,
+            "startedAt": 1794873506390,
+            "finishedAt": 1794873507738,
+            "inputs": [],
+            "artifacts": [],
+            "logChunks": 2,
+            "logTail": "::boundry-ci:: attempt run_a2ec9581fcb10625d2f07c0f-def3a35ce8c8037a-a1 job formatted image boundry-toolchain/rust:1 worker-revision unknown\n::boundry-ci:: source rkendel1/pax@c3fb3b4c86b14faa4cbc196d421276f02e9100ef definition 4eb567576fdc7561dbbf4773c64c409fd94a7833567e7540cfb6c78884adb8ba plan b665f393d217d680e4e20975dedcf2e349dc13efde8fd0181f1ef7ebc7cd5ed7\n::step:: The code is formatted\n::boundry-ci:: succeeded\n",
+            "logBytes": 419
+          }
+        ]
+      },
+      {
+        "key": "lint",
+        "name": "The linter passes",
+        "state": "succeeded",
+        "reason": null,
+        "capabilities": [
+          "check.lint@1.0.0",
+          "toolchain.rust1"
+        ],
+        "image": "boundry-toolchain/rust:1",
+        "imageDigest": "sha256:add5bb0d051999904be90aa449f956c4b221dfe24ea0b3d668db66b95dbd3103",
+        "needs": [],
+        "approval": {
+          "approvers": [],
+          "required": false
+        },
+        "permissions": {
+          "deploy": false,
+          "release": false
+        },
+        "attempts": [
+          {
+            "id": "run_a2ec9581fcb10625d2f07c0f-da966368ea663ea5-a1",
+            "n": 1,
+            "worker": "example-w2",
+            "state": "succeeded",
+            "exitCode": 0,
+            "reason": null,
+            "startedAt": 1794873506381,
+            "finishedAt": 1794873516983,
+            "inputs": [],
+            "artifacts": [],
+            "logChunks": 9,
+            "logTail": "   Compiling serde_core v1.0.229\n   Compiling syn v3.0.6\n   Compiling serde v1.0.229\n    Checking hashbrown v0.17.1\n    Checking equivalent v1.0.3\n    Checking indexmap v2.14.2\n   Compiling zmij v1.0.23\n   Compiling serde_derive v1.0.229\n   Compiling serde_json v1.0.151\n    Checking toml_write v0.1.2\n    Checking winnow v0.7.15\n    Checking itoa v1.0.18\n    Checking unsafe-libyaml v0.2.11\n    Checking memchr v2.8.3\n    Checking toml_datetime v0.6.11\n    Checking serde_spanned v0.6.9\n    Checking ryu v1.0.23\n    Checking toml_edit v0.22.27\n    Checking serde_yaml v0.9.34+deprecated\n    Checking toml v0.8.23\n    Checking syn v2.0.119\n    Checking pax v0.5.0 (/workspace)\n    Finished `dev` profile [unoptimized + debuginfo] target(s) in 9.03s\n::boundry-ci:: succeeded\n",
+            "logBytes": 1285
+          }
+        ]
+      },
+      {
+        "key": "tests",
+        "name": "The tests pass",
+        "state": "failed",
+        "reason": "exit code 101",
+        "capabilities": [
+          "check.tests@1.0.0",
+          "toolchain.rust1"
+        ],
+        "image": "boundry-toolchain/rust:1",
+        "imageDigest": "sha256:add5bb0d051999904be90aa449f956c4b221dfe24ea0b3d668db66b95dbd3103",
+        "needs": [],
+        "approval": {
+          "approvers": [],
+          "required": false
+        },
+        "permissions": {
+          "deploy": false,
+          "release": false
+        },
+        "attempts": [
+          {
+            "id": "run_a2ec9581fcb10625d2f07c0f-59830ebc3a418411-a1",
+            "n": 1,
+            "worker": "example-w1",
+            "state": "failed",
+            "exitCode": 101,
+            "reason": "exit code 101",
+            "startedAt": 1794873452252,
+            "finishedAt": 1794873473980,
+            "inputs": [],
+            "artifacts": [
+              {
+                "digest": "b0f479692103a883defc6516c8b94bbb298b01e4a91e0faef43d54a007234bd0",
+                "name": "test-results.txt",
+                "size": 8624,
+                "verifiedInStore": true
+              }
+            ],
+            "logChunks": 3,
+            "logTail": "test single_package_cargo_project_has_independent_manifest_and_lock_observations ... ok\ntest unsupported_first_class_operation_guides_custom_operations ... ok\ntest virtual_cargo_workspace_reports_resolved_package_names ... ok\ntest x_delegates_to_native_package_runner ... ok\ntest x_install_delegates_python_requirements_to_pip ... ok\ntest human_test_output_is_unchanged_without_json ... ok\n\nfailures:\n\n---- execution_result_for_uninterpreted_tool_keeps_stdout_clean stdout ----\n\nthread 'execution_result_for_uninterpreted_tool_keeps_stdout_clean' (936) panicked at tests/cli.rs:1179:5:\nassertion failed: String::from_utf8_lossy(&output.stderr).contains(\"native-output\")\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n\n\nfailures:\n    execution_result_for_uninterpreted_tool_keeps_stdout_clean\n\ntest result: FAILED. 45 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.17s\n\nerror: test failed, to rerun pass `--test cli`\n::boundry-ci:: artifact test-results.txt sha256:b0f479692103a883defc6516c8b94bbb298b01e4a91e0faef43d54a007234bd0 (8624 bytes)\n::boundry-ci:: failed (exit code 101)\n",
+            "logBytes": 9253
+          }
+        ]
+      }
+    ],
+    "approvals": [],
+    "statuses": [
+      {
+        "context": "boundry/check/builds",
+        "state": "pending",
+        "delivered": true,
+        "attempts": 0,
+        "lastError": null
+      },
+      {
+        "context": "boundry/check/tests",
+        "state": "pending",
+        "delivered": true,
+        "attempts": 0,
+        "lastError": null
+      },
+      {
+        "context": "boundry/check/formatted",
+        "state": "pending",
+        "delivered": true,
+        "attempts": 0,
+        "lastError": null
+      },
+      {
+        "context": "boundry/check/lint",
+        "state": "pending",
+        "delivered": true,
+        "attempts": 0,
+        "lastError": null
+      },
+      {
+        "context": "boundry/check",
+        "state": "pending",
+        "delivered": true,
+        "attempts": 0,
+        "lastError": null
+      },
+      {
+        "context": "boundry/check/tests",
+        "state": "failure",
+        "delivered": true,
+        "attempts": 0,
+        "lastError": null
+      },
+      {
+        "context": "boundry/check/builds",
+        "state": "success",
+        "delivered": true,
+        "attempts": 0,
+        "lastError": null
+      },
+      {
+        "context": "boundry/check/formatted",
+        "state": "success",
+        "delivered": true,
+        "attempts": 0,
+        "lastError": null
+      },
+      {
+        "context": "boundry/check/lint",
+        "state": "success",
+        "delivered": true,
+        "attempts": 0,
+        "lastError": null
+      },
+      {
+        "context": "boundry/check",
+        "state": "failure",
+        "delivered": true,
+        "attempts": 0,
+        "lastError": null
+      }
+    ]
+  }
+}

@@ -5,7 +5,7 @@
 import type { ProjectFacts, Ecosystem } from "./facts.ts";
 import { realScript } from "./facts.ts";
 
-export const CATALOG_VERSION = "boundry-capabilities/1.0.0";
+export const CATALOG_VERSION = "boundry-capabilities/1.0.1"; // 1.0.1: Rust cache covers CARGO_HOME (concurrency fix)
 
 export type Status = "implemented" | "partial" | "unavailable";
 export type Kind = "trigger" | "check" | "step" | "approval" | "keep" | "after" | "project";
@@ -37,7 +37,9 @@ export const TOOLCHAINS: Record<string, Toolchain> = {
     image: "boundry-toolchain/rust:1", imageDigest: "sha256:add5bb0d051999904be90aa449f956c4b221dfe24ea0b3d668db66b95dbd3103",
     note: "built from deploy/toolchains/rust.Dockerfile (official rust:1-slim lacks rustfmt and clippy)",
     requires: ["linux-build"], env: { CARGO_HOME: "/tmp/cargo", CARGO_TERM_COLOR: "never", CARGO_INCREMENTAL: "0" },
-    cache: [{ name: "cargo-registry", path: "/tmp/cargo/registry", keyFiles: ["Cargo.lock"] }],
+    // The whole CARGO_HOME is the cache so cargo's own package-cache lock is shared too: parallel jobs on one host
+    // serialize registry writes instead of racing (a shared registry/ without the lock corrupted unpacking).
+    cache: [{ name: "cargo-home", path: "/tmp/cargo", keyFiles: ["Cargo.lock"] }],
     resources: { cpus: 2, memoryMb: 4096, diskMb: 8192, pids: 4096 }, timeoutMinutes: 45,
   },
   go: {

@@ -69,7 +69,7 @@ test("R1 compilation is deterministic; recipe, facts and catalog versions are re
   assert.equal(a.definitionDigest, b.definitionDigest);
   assert.equal(JSON.stringify(a.plan), JSON.stringify(b.plan));
   assert.equal(a.compiler, "boundry-recipes/1.0.0");
-  assert.equal(a.catalog, "boundry-capabilities/1.0.0");
+  assert.equal(a.catalog, "boundry-capabilities/1.0.1");
   assert.equal(a.capabilities["check.tests"], "1.0.0");
   const otherCommit = await compileOk(CHECK, NODE, { ...PR, sha: sha(2) });
   assert.equal(otherCommit.definitionDigest, a.definitionDigest, "what runs does not depend on the commit");

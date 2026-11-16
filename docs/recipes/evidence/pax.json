@@ -1,0 +1,350 @@
+{
+  "example": "pax",
+  "repository": "rkendel1/pax",
+  "commit": "aab5039b24a9793ed88cafb94c84aca6f76b040b",
+  "overlay": {
+    "recipe": ".boundry/recipes/check.md",
+    "from": "examples/recipes/pax/check.md"
+  },
+  "durationSeconds": 42,
+  "approvals": [],
+  "statusesCaptured": [
+    {
+      "context": "boundry/check/formatted",
+      "state": "failure",
+      "description": "failed: exit code 1"
+    },
+    {
+      "context": "boundry/check",
+      "state": "failure",
+      "description": "Run failed"
+    },
+    {
+      "context": "boundry/check/tests",
+      "state": "failure",
+      "description": "failed: exit code 101"
+    },
+    {
+      "context": "boundry/check/builds",
+      "state": "failure",
+      "description": "failed: exit code 101"
+    },
+    {
+      "context": "boundry/check/lint",
+      "state": "failure",
+      "description": "failed: exit code 101"
+    }
+  ],
+  "evidence": {
+    "run": {
+      "actor": "example",
+      "cancelInProgress": true,
+      "cancelRequested": false,
+      "concurrencyGroup": "rkendel1/pax/refs/pull/1/head/check",
+      "createdAt": 1794873409480,
+      "definitionPath": ".boundry/recipes/check.md",
+      "downstream": [],
+      "eventId": "ev_d54dcdb97fb308bdce9af7bef6503a3a71c3f1d3",
+      "explanation": "# Check my changes\n\nKeep pax buildable, tested, tidy and free of lint warnings.\n\nRecipe `.boundry/recipes/check.md` · sha256:4eb567576fdc · compiled by boundry-recipes/1.0.0 with boundry-capabilities/1.0.1 · definition 85bce8d81e7b\n\n## Runs when\n- someone opens or updates a pull request\n- new commits reach `main`\n\n## Project\n- Rust project (`pax`) in the repository root (evidence: `Cargo.lock`, `Cargo.toml`)\n\n## Checks (4 jobs at the same time)\n1. **The application builds** — runs `cargo build --locked --release`\n   Rust (stable, with rustfmt and clippy) · installs dependencies first · internet: yes · keeps `build-output.tar` · capability `check.builds@1.0.0`\n2. **The code is formatted** — runs `cargo fmt --check`\n   Rust (stable, with rustfmt and clippy) · internet: no · capability `check.formatted@1.0.0`\n3. **The linter passes** — runs `cargo clippy` with warnings treated as errors\n   Rust (stable, with rustfmt and clippy) · installs dependencies first · internet: yes · capability `check.lint@1.0.0`\n4. **The tests pass** — runs `cargo test --locked`\n   Rust (stable, with rustfmt and clippy) · installs dependencies first · internet: yes · keeps `test-results.txt` · capability `check.tests@1.0.0`\n\n## Authority\n- Permissions: none\n- Secrets: none\n- Approvals: none\n- Publishes or deploys: nothing\n- Proposed changes from forks never receive secrets, release/deploy access or trusted caches.\n\n## Kept\n- `build-output.tar` from “The application builds” for 30 days\n- `test-results.txt` from “The tests pass” for 30 days (also when tests fail)\n- The record: this recipe, its compiled plan, project facts, every attempt's log, inputs and outputs (always)\n\n## Afterward\n- The result is reported on the commit/pull request as statuses\n",
+      "finishedAt": 1794873451689,
+      "id": "run_617c1a1f100347dd5428556e",
+      "kind": "pull_request",
+      "pipeline": "Check my changes",
+      "planDigest": "abd3877a2857678b9f0e44516f9d1e972a40124869d086855d2c61351110d74d",
+      "reason": null,
+      "recipe": {
+        "capabilities": {
+          "after.report": "1.0.0",
+          "check.builds": "1.0.0",
+          "check.formatted": "1.0.0",
+          "check.lint": "1.0.0",
+          "check.tests": "1.0.0",
+          "keep.build-output": "1.0.0",
+          "keep.evidence": "1.0.0",
+          "keep.test-results": "1.0.0",
+          "trigger.branch-updated": "1.0.0",
+          "trigger.change-proposed": "1.0.0"
+        },
+        "catalog": "boundry-capabilities/1.0.1",
+        "compiler": "boundry-recipes/1.0.0",
+        "definitionDigest": "85bce8d81e7b7027af0891f5a04dfceb67c64be7aa1181203d557871f8f42ba0",
+        "facts": {
+          "dir": ".",
+          "ecosystems": [
+            "rust"
+          ],
+          "evidence": [
+            "Cargo.lock",
+            "Cargo.toml"
+          ],
+          "rust": {
+            "edition": "2024",
+            "lockfile": true,
+            "packageName": "pax",
+            "workspace": false
+          }
+        },
+        "factsDigest": "49349749245f19fd0feeb9bfed17ca46c8b0337b5ee977c0dcd870be6693cefe",
+        "path": ".boundry/recipes/check.md",
+        "sourceDigest": "4eb567576fdc7561dbbf4773c64c409fd94a7833567e7540cfb6c78884adb8ba",
+        "title": "Check my changes"
+      },
+      "ref": "refs/pull/1/head",
+      "repository": "rkendel1/pax",
+      "sha": "aab5039b24a9793ed88cafb94c84aca6f76b040b",
+      "sourceDigest": "4eb567576fdc7561dbbf4773c64c409fd94a7833567e7540cfb6c78884adb8ba",
+      "state": "failed",
+      "statusPrefix": "boundry/check",
+      "trusted": true
+    },
+    "trigger": {
+      "kind": "pull_request",
+      "ref": "refs/pull/1/head",
+      "sha": "aab5039b24a9793ed88cafb94c84aca6f76b040b",
+      "actor": "example",
+      "provider": "github",
+      "deliveryId": "example-pax-aab5039b24a9793ed88cafb94c84aca6f76b040b",
+      "receivedAt": 1794873409480,
+      "trusted": true
+    },
+    "definition": {
+      "path": ".boundry/recipes/check.md",
+      "sha256": "4eb567576fdc7561dbbf4773c64c409fd94a7833567e7540cfb6c78884adb8ba",
+      "source": "# Check my changes\n\nKeep pax buildable, tested, tidy and free of lint warnings.\n\n## When this happens\n- Someone proposes a change or updates the main branch.\n\n## Make sure\n- The application builds.\n- The tests pass.\n- The code is formatted.\n- The linter passes.\n\n## Keep\n- The build output.\n- The test results.\n- A record of what was checked.\n\n## Afterward\n- Report the result on the change.\n"
+    },
+    "jobs": [
+      {
+        "key": "builds",
+        "name": "The application builds",
+        "state": "failed",
+        "reason": "exit code 101",
+        "capabilities": [
+          "check.builds@1.0.0",
+          "toolchain.rust1"
+        ],
+        "image": "boundry-toolchain/rust:1",
+        "imageDigest": "sha256:add5bb0d051999904be90aa449f956c4b221dfe24ea0b3d668db66b95dbd3103",
+        "needs": [],
+        "approval": {
+          "approvers": [],
+          "required": false
+        },
+        "permissions": {
+          "deploy": false,
+          "release": false
+        },
+        "attempts": [
+          {
+            "id": "run_617c1a1f100347dd5428556e-8459419d4cfe6b1a-a1",
+            "n": 1,
+            "worker": "example-w2",
+            "state": "failed",
+            "exitCode": 101,
+            "reason": "exit code 101",
+            "startedAt": 1794873409576,
+            "finishedAt": 1794873440333,
+            "inputs": [],
+            "artifacts": [],
+            "logChunks": 14,
+            "logTail": "\nerror[E0308]: mismatched types\n    --> src/lib.rs:4190:55\n     |\n4190 | ...                   normalize_python_name(candidate) == name\n     |                       --------------------- ^^^^^^^^^ expected `&str`, found `String`\n     |                       |\n     |                       arguments to this function are incorrect\n     |\nnote: function defined here\n    --> src/lib.rs:1371:4\n     |\n1371 | fn normalize_python_name(name: &str) -> String {\n     |    ^^^^^^^^^^^^^^^^^^^^^ ----------\nhelp: consider borrowing here\n     |\n4190 |                                 normalize_python_name(&candidate) == name\n     |                                                       +\n\nSome errors have detailed explanations: E0061, E0308, E0425, E0609.\nFor more information about an error, try `rustc --explain E0061`.\nerror: could not compile `pax` (lib) due to 12 previous errors\nwarning: build failed, waiting for other jobs to finish...\n::boundry-ci:: failed (exit code 101)\n",
+            "logBytes": 10748
+          }
+        ]
+      },
+      {
+        "key": "formatted",
+        "name": "The code is formatted",
+        "state": "failed",
+        "reason": "exit code 1",
+        "capabilities": [
+          "check.formatted@1.0.0",
+          "toolchain.rust1"
+        ],
+        "image": "boundry-toolchain/rust:1",
+        "imageDigest": "sha256:add5bb0d051999904be90aa449f956c4b221dfe24ea0b3d668db66b95dbd3103",
+        "needs": [],
+        "approval": {
+          "approvers": [],
+          "required": false
+        },
+        "permissions": {
+          "deploy": false,
+          "release": false
+        },
+        "attempts": [
+          {
+            "id": "run_617c1a1f100347dd5428556e-def3a35ce8c8037a-a1",
+            "n": 1,
+            "worker": "example-w2",
+            "state": "failed",
+            "exitCode": 1,
+            "reason": "exit code 1",
+            "startedAt": 1794873440380,
+            "finishedAt": 1794873441919,
+            "inputs": [],
+            "artifacts": [],
+            "logChunks": 2,
+            "logTail": "         return Ok(RunCommand {\nDiff in /workspace/src/lib.rs:4925:\n                 Some(tool),\n                 UnsupportedReason::PipenvUnsupported,\n                 \"pipenv is not supported: PAX can discover Pipfile declarations but cannot run pipenv commands\",\n-                Some(\"Use `--tool uv`, `--tool poetry`, `--tool pdm`, or `--tool pip`.\".to_string()),\n+                Some(\n+                    \"Use `--tool uv`, `--tool poetry`, `--tool pdm`, or `--tool pip`.\".to_string(),\n+                ),\n             )),\n             \"uv\" | \"poetry\" | \"pdm\" => {\n                 let mut args = vec![\"run\".to_string(), target.clone()];\nDiff in /workspace/src/lib.rs:5007:\n                 Some(\"pipenv\"),\n                 UnsupportedReason::PipenvUnsupported,\n                 \"pipenv is not supported: PAX can discover Pipfile declarations but cannot run pipenv commands\",\n-                Some(\"Use `--tool uv`, `--tool poetry`, `--tool pdm`, or `--tool pip`.\".to_string()),\n+                Some(\n+                    \"Use `--tool uv`, `--tool poetry`, `--tool pdm`, or `--tool pip`.\".to_string(),\n+                ),\n             )),\n             _ => Err(unsupported(\n                 operation,\n::boundry-ci:: failed (exit code 1)\n",
+            "logBytes": 11883
+          }
+        ]
+      },
+      {
+        "key": "lint",
+        "name": "The linter passes",
+        "state": "failed",
+        "reason": "exit code 101",
+        "capabilities": [
+          "check.lint@1.0.0",
+          "toolchain.rust1"
+        ],
+        "image": "boundry-toolchain/rust:1",
+        "imageDigest": "sha256:add5bb0d051999904be90aa449f956c4b221dfe24ea0b3d668db66b95dbd3103",
+        "needs": [],
+        "approval": {
+          "approvers": [],
+          "required": false
+        },
+        "permissions": {
+          "deploy": false,
+          "release": false
+        },
+        "attempts": [
+          {
+            "id": "run_617c1a1f100347dd5428556e-da966368ea663ea5-a1",
+            "n": 1,
+            "worker": "example-w1",
+            "state": "failed",
+            "exitCode": 101,
+            "reason": "exit code 101",
+            "startedAt": 1794873440371,
+            "finishedAt": 1794873451683,
+            "inputs": [],
+            "artifacts": [],
+            "logChunks": 10,
+            "logTail": "error[E0308]: mismatched types\n    --> src/lib.rs:4190:55\n     |\n4190 | ...                   normalize_python_name(candidate) == name\n     |                       --------------------- ^^^^^^^^^ expected `&str`, found `String`\n     |                       |\n     |                       arguments to this function are incorrect\n     |\nnote: function defined here\n    --> src/lib.rs:1371:4\n     |\n1371 | fn normalize_python_name(name: &str) -> String {\n     |    ^^^^^^^^^^^^^^^^^^^^^ ----------\nhelp: consider borrowing here\n     |\n4190 |                                 normalize_python_name(&candidate) == name\n     |                                                       +\n\nSome errors have detailed explanations: E0061, E0308, E0425, E0609.\nFor more information about an error, try `rustc --explain E0061`.\nerror: could not compile `pax` (lib) due to 12 previous errors\nwarning: build failed, waiting for other jobs to finish...\nerror: could not compile `pax` (lib test) due to 12 previous errors\n::boundry-ci:: failed (exit code 101)\n",
+            "logBytes": 10809
+          }
+        ]
+      },
+      {
+        "key": "tests",
+        "name": "The tests pass",
+        "state": "failed",
+        "reason": "exit code 101",
+        "capabilities": [
+          "check.tests@1.0.0",
+          "toolchain.rust1"
+        ],
+        "image": "boundry-toolchain/rust:1",
+        "imageDigest": "sha256:add5bb0d051999904be90aa449f956c4b221dfe24ea0b3d668db66b95dbd3103",
+        "needs": [],
+        "approval": {
+          "approvers": [],
+          "required": false
+        },
+        "permissions": {
+          "deploy": false,
+          "release": false
+        },
+        "attempts": [
+          {
+            "id": "run_617c1a1f100347dd5428556e-59830ebc3a418411-a1",
+            "n": 1,
+            "worker": "example-w1",
+            "state": "failed",
+            "exitCode": 101,
+            "reason": "exit code 101",
+            "startedAt": 1794873409573,
+            "finishedAt": 1794873424337,
+            "inputs": [],
+            "artifacts": [
+              {
+                "digest": "0707922c8146d79263b750b1776aabd2674c2adde0cf2bd61bc147093635b6e4",
+                "name": "test-results.txt",
+                "size": 10288,
+                "verifiedInStore": true
+              }
+            ],
+            "logChunks": 3,
+            "logTail": "error[E0308]: mismatched types\n    --> src/lib.rs:4190:55\n     |\n4190 | ...                   normalize_python_name(candidate) == name\n     |                       --------------------- ^^^^^^^^^ expected `&str`, found `String`\n     |                       |\n     |                       arguments to this function are incorrect\n     |\nnote: function defined here\n    --> src/lib.rs:1371:4\n     |\n1371 | fn normalize_python_name(name: &str) -> String {\n     |    ^^^^^^^^^^^^^^^^^^^^^ ----------\nhelp: consider borrowing here\n     |\n4190 |                                 normalize_python_name(&candidate) == name\n     |                                                       +\n\nSome errors have detailed explanations: E0061, E0308, E0425, E0609.\nFor more information about an error, try `rustc --explain E0061`.\nerror: could not compile `pax` (lib) due to 12 previous errors\nwarning: build failed, waiting for other jobs to finish...\n::boundry-ci:: artifact test-results.txt sha256:0707922c8146d79263b750b1776aabd2674c2adde0cf2bd61bc147093635b6e4 (10288 bytes)\n::boundry-ci:: failed (exit code 101)\n",
+            "logBytes": 10866
+          }
+        ]
+      }
+    ],
+    "approvals": [],
+    "statuses": [
+      {
+        "context": "boundry/check/formatted",
+        "state": "pending",
+        "delivered": true,
+        "attempts": 0,
+        "lastError": null
+      },
+      {
+        "context": "boundry/check",
+        "state": "pending",
+        "delivered": true,
+        "attempts": 0,
+        "lastError": null
+      },
+      {
+        "context": "boundry/check/tests",
+        "state": "pending",
+        "delivered": true,
+        "attempts": 0,
+        "lastError": null
+      },
+      {
+        "context": "boundry/check/builds",
+        "state": "pending",
+        "delivered": true,
+        "attempts": 0,
+        "lastError": null
+      },
+      {
+        "context": "boundry/check/lint",
+        "state": "pending",
+        "delivered": true,
+        "attempts": 0,
+        "lastError": null
+      },
+      {
+        "context": "boundry/check/tests",
+        "state": "failure",
+        "delivered": true,
+        "attempts": 0,
+        "lastError": null
+      },
+      {
+        "context": "boundry/check/builds",
+        "state": "failure",
+        "delivered": true,
+        "attempts": 0,
+        "lastError": null
+      },
+      {
+        "context": "boundry/check/formatted",
+        "state": "failure",
+        "delivered": true,
+        "attempts": 0,
+        "lastError": null
+      },
+      {
+        "context": "boundry/check/lint",
+        "state": "failure",
+        "delivered": true,
+        "attempts": 0,
+        "lastError": null
+      },
+      {
+        "context": "boundry/check",
+        "state": "failure",
+        "delivered": true,
+        "attempts": 0,
+        "lastError": null
+      }
+    ]
+  }
+}

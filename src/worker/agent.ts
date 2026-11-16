@@ -129,7 +129,7 @@ export class WorkerAgent {
       result = { outcome: "failed", exitCode: null, reason: `infrastructure: ${(e as Error).message}`, logChunks: logs.seq, artifacts: [] };
     } finally {
       clearInterval(hb);
-      rmSync(workspace, { recursive: true, force: true });
+      await this.exec.cleanup(workspace);
     }
     if (leaseLost) { this.#log("lease lost; result discarded by authority", { attempt: g.attemptId }); }
     // Idempotent: safe to retry on transport failure.

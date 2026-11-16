@@ -73,6 +73,18 @@ export class OciExecutor {
     if (norm !== expected) throw new Error(`image ${image} is ${id ? norm.slice(0, 19) : "absent"}, pinned ${expected.slice(0, 19)}`);
   }
 
+  /** Give the workspace to the job uid: chown under a rootful engine, `podman unshare chown` under rootless Podman. */
+  async #own(dir: string): Promise<void> {
+    const args = this.cli.endsWith("podman") ? [this.cli, "unshare", "chown", "-R", this.jobUid, dir] : ["chown", "-R", this.jobUid, dir];
+    await new Promise<void>((res, rej) => spawn(args[0], args.slice(1), { stdio: "ignore" }).on("close", (c) => (c === 0 ? res() : rej(new Error(`could not hand the workspace to the job user (${args[0]} exit ${c})`)))));
+  }
+
+  /** Remove a workspace the job owned (rootless: files belong to a subordinate uid, so remove inside the user namespace). */
+  async cleanup(dir: string): Promise<void> {
+    if (this.cli.endsWith("podman")) await new Promise<void>((res) => spawn(this.cli, ["unshare", "rm", "-rf", dir], { stdio: "ignore" }).on("close", () => res()));
+    rmSync(dir, { recursive: true, force: true });
+  }
+
   async run(x: ExecInput): Promise<ExecResult> {
     const { job } = x;
     if (job.imageDigest) await this.#verifyImage(job.image, job.imageDigest);
@@ -86,12 +98,15 @@ export class OciExecutor {
     const scriptPath = join(x.workspace, ".boundry-ci-steps.sh");
     writeFileSync(scriptPath, `set -eu\n${script}\n`, { mode: 0o755 });
     chmodSync(x.workspace, 0o777);
+    // The job must OWN its workspace (tools such as npm chmod files they install or link).
+    await this.#own(x.workspace);
 
     const args = [
       "run", "--rm", "--name", name,
       "--user", this.jobUid,
       "--cap-drop", "ALL", "--security-opt", "no-new-privileges",
-      "--read-only", "--tmpfs", "/tmp:rw,nosuid,nodev,size=512m",
+      // exec is allowed: build/test tools legitimately run helpers from temp dirs (the workspace is executable anyway).
+      "--read-only", "--tmpfs", `/tmp:rw,exec,nosuid,nodev,size=${job.resources.memoryMb}m`,
       "--pids-limit", String(job.resources.pids),
       "--memory", `${job.resources.memoryMb}m`, "--memory-swap", `${job.resources.memoryMb}m`,
       "--cpus", String(job.resources.cpus),

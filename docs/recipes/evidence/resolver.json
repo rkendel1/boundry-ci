@@ -1,0 +1,308 @@
+{
+  "example": "resolver",
+  "repository": "rkendel1/resolver",
+  "commit": "aaab053651a9144e470c3b62c1c550ab084effe7",
+  "overlay": {
+    "recipe": ".boundry/recipes/check.md",
+    "from": "examples/recipes/resolver/check.md"
+  },
+  "durationSeconds": 39,
+  "approvals": [],
+  "statusesCaptured": [
+    {
+      "context": "boundry/check/builds",
+      "state": "success",
+      "description": "succeeded"
+    },
+    {
+      "context": "boundry/check",
+      "state": "success",
+      "description": "Run succeeded"
+    },
+    {
+      "context": "boundry/check/types",
+      "state": "success",
+      "description": "succeeded"
+    },
+    {
+      "context": "boundry/check/tests",
+      "state": "success",
+      "description": "succeeded"
+    }
+  ],
+  "evidence": {
+    "run": {
+      "actor": "example",
+      "cancelInProgress": true,
+      "cancelRequested": false,
+      "concurrencyGroup": "rkendel1/resolver/refs/pull/1/head/check",
+      "createdAt": 1794873369747,
+      "definitionPath": ".boundry/recipes/check.md",
+      "downstream": [],
+      "eventId": "ev_9121bc54cf659578fd7c6ada6694335f64ab85be",
+      "explanation": "# Check my changes\n\nMake sure every proposed change to Resolver builds and passes its tests before it is merged.\n\nRecipe `.boundry/recipes/check.md` · sha256:ba86677c876a · compiled by boundry-recipes/1.0.0 with boundry-capabilities/1.0.1 · definition 5079e25e8028\n\n## Runs when\n- someone opens or updates a pull request\n- new commits reach `main`\n\n## Project\n- Node.js project using npm (`package-lock.json`) in the repository root (evidence: `package-lock.json`, `package.json`)\n\n## Checks (3 jobs at the same time)\n1. **The application builds** — runs `npm run build`\n   Node.js 22 · installs dependencies first · internet: yes · keeps `build-output.tar` · capability `check.builds@1.0.0`\n2. **The tests pass** — runs `npm test`\n   Node.js 22 · installs dependencies first · internet: yes · keeps `test-results.txt` · capability `check.tests@1.0.0`\n3. **There are no type errors** — runs `npm run typecheck`\n   Node.js 22 · installs dependencies first · internet: yes · capability `check.types@1.0.0`\n\n## Authority\n- Permissions: none\n- Secrets: none\n- Approvals: none\n- Publishes or deploys: nothing\n- Proposed changes from forks never receive secrets, release/deploy access or trusted caches.\n\n## Kept\n- `build-output.tar` from “The application builds” for 30 days\n- `test-results.txt` from “The tests pass” for 30 days (also when tests fail)\n- The record: this recipe, its compiled plan, project facts, every attempt's log, inputs and outputs (always)\n\n## Afterward\n- The result is reported on the commit/pull request as statuses\n",
+      "finishedAt": 1794873409016,
+      "id": "run_1b7ff556d94e9b1287a95fdc",
+      "kind": "pull_request",
+      "pipeline": "Check my changes",
+      "planDigest": "e1f1acc83690f6e7def9f2453d78500dceaeed3b11c2d7bba8cdc45747a9fef8",
+      "reason": null,
+      "recipe": {
+        "capabilities": {
+          "after.report": "1.0.0",
+          "check.builds": "1.0.0",
+          "check.tests": "1.0.0",
+          "check.types": "1.0.0",
+          "keep.build-output": "1.0.0",
+          "keep.evidence": "1.0.0",
+          "keep.test-results": "1.0.0",
+          "project.output": "1.0.0",
+          "trigger.branch-updated": "1.0.0",
+          "trigger.change-proposed": "1.0.0"
+        },
+        "catalog": "boundry-capabilities/1.0.1",
+        "compiler": "boundry-recipes/1.0.0",
+        "definitionDigest": "5079e25e802840c687d791988ed7212ec8d64792c06c6963f0aba469c2b6c727",
+        "facts": {
+          "dir": ".",
+          "ecosystems": [
+            "node"
+          ],
+          "evidence": [
+            "package-lock.json",
+            "package.json"
+          ],
+          "node": {
+            "hints": {},
+            "lockfile": "package-lock.json",
+            "packageManager": "npm",
+            "scripts": {
+              "build": "tsc -b tsconfig.build.json",
+              "clean": "tsc -b tsconfig.build.json --clean",
+              "publish:packages": "node --env-file-if-exists=.env.local scripts/publish-packages.mjs",
+              "test": "vitest run",
+              "test:browser": "vitest run --config vitest.browser.config.ts",
+              "typecheck": "tsc -b tsconfig.build.json --pretty"
+            },
+            "workspaces": true
+          }
+        },
+        "factsDigest": "497ae868e72392c18a86be6136faa466db71713dc7d74cb01f1806141673e9b9",
+        "path": ".boundry/recipes/check.md",
+        "sourceDigest": "ba86677c876aeed31d5853ad7a2de88b8dce1ba2070a034b1559c221502d23b9",
+        "title": "Check my changes"
+      },
+      "ref": "refs/pull/1/head",
+      "repository": "rkendel1/resolver",
+      "sha": "aaab053651a9144e470c3b62c1c550ab084effe7",
+      "sourceDigest": "ba86677c876aeed31d5853ad7a2de88b8dce1ba2070a034b1559c221502d23b9",
+      "state": "succeeded",
+      "statusPrefix": "boundry/check",
+      "trusted": true
+    },
+    "trigger": {
+      "kind": "pull_request",
+      "ref": "refs/pull/1/head",
+      "sha": "aaab053651a9144e470c3b62c1c550ab084effe7",
+      "actor": "example",
+      "provider": "github",
+      "deliveryId": "example-resolver-aaab053651a9144e470c3b62c1c550ab084effe7",
+      "receivedAt": 1794873369747,
+      "trusted": true
+    },
+    "definition": {
+      "path": ".boundry/recipes/check.md",
+      "sha256": "ba86677c876aeed31d5853ad7a2de88b8dce1ba2070a034b1559c221502d23b9",
+      "source": "# Check my changes\n\nMake sure every proposed change to Resolver builds and passes its tests before it is merged.\n\n## When this happens\n- Someone proposes a change or updates the main branch.\n\n## Make sure\n- The application builds.\n- The tests pass.\n- There are no type errors.\n\n## Keep\n- The build output.\n- The test results.\n- A record of what was checked.\n\n## Afterward\n- Report the result on the change.\n\n## About this project\n- The build output is in `packages/core/dist`, `packages/server/dist` and `packages/client/dist`.\n"
+    },
+    "jobs": [
+      {
+        "key": "builds",
+        "name": "The application builds",
+        "state": "succeeded",
+        "reason": null,
+        "capabilities": [
+          "check.builds@1.0.0",
+          "toolchain.node22"
+        ],
+        "image": "mirror.gcr.io/library/node@sha256:e9f565d32859f0cbfb52125eafe8be39390f24dac302dc3cdf566e8ba3ab21ee",
+        "imageDigest": null,
+        "needs": [],
+        "approval": {
+          "approvers": [],
+          "required": false
+        },
+        "permissions": {
+          "deploy": false,
+          "release": false
+        },
+        "attempts": [
+          {
+            "id": "run_1b7ff556d94e9b1287a95fdc-8459419d4cfe6b1a-a1",
+            "n": 1,
+            "worker": "example-w2",
+            "state": "succeeded",
+            "exitCode": 0,
+            "reason": null,
+            "startedAt": 1794873369855,
+            "finishedAt": 1794873382334,
+            "inputs": [],
+            "artifacts": [
+              {
+                "digest": "88d50bc6500b9ba9fc857faa718ec7c2a26ceaee0339e74e1f7106266ed8e4c2",
+                "name": "build-output.tar",
+                "size": 798720,
+                "verifiedInStore": true
+              }
+            ],
+            "logChunks": 4,
+            "logTail": "::boundry-ci:: attempt run_1b7ff556d94e9b1287a95fdc-8459419d4cfe6b1a-a1 job builds image mirror.gcr.io/library/node@sha256:e9f565d32859f0cbfb52125eafe8be39390f24dac302dc3cdf566e8ba3ab21ee worker-revision unknown\n::boundry-ci:: source rkendel1/resolver@aaab053651a9144e470c3b62c1c550ab084effe7 definition ba86677c876aeed31d5853ad7a2de88b8dce1ba2070a034b1559c221502d23b9 plan e1f1acc83690f6e7def9f2453d78500dceaeed3b11c2d7bba8cdc45747a9fef8\n::step:: Install dependencies\n\nadded 203 packages in 5s\n::step:: The application builds\n\n> build\n> tsc -b tsconfig.build.json\n\n::step:: Keep the build output\n::boundry-ci:: artifact build-output.tar sha256:88d50bc6500b9ba9fc857faa718ec7c2a26ceaee0339e74e1f7106266ed8e4c2 (798720 bytes)\n::boundry-ci:: succeeded\n",
+            "logBytes": 750
+          }
+        ]
+      },
+      {
+        "key": "tests",
+        "name": "The tests pass",
+        "state": "succeeded",
+        "reason": null,
+        "capabilities": [
+          "check.tests@1.0.0",
+          "toolchain.node22"
+        ],
+        "image": "mirror.gcr.io/library/node@sha256:e9f565d32859f0cbfb52125eafe8be39390f24dac302dc3cdf566e8ba3ab21ee",
+        "imageDigest": null,
+        "needs": [],
+        "approval": {
+          "approvers": [],
+          "required": false
+        },
+        "permissions": {
+          "deploy": false,
+          "release": false
+        },
+        "attempts": [
+          {
+            "id": "run_1b7ff556d94e9b1287a95fdc-59830ebc3a418411-a1",
+            "n": 1,
+            "worker": "example-w1",
+            "state": "succeeded",
+            "exitCode": 0,
+            "reason": null,
+            "startedAt": 1794873369852,
+            "finishedAt": 1794873399044,
+            "inputs": [],
+            "artifacts": [
+              {
+                "digest": "2f38fc0345ddb40baeafb0b388e82e3e185273fa079190a82985be079e600d94",
+                "name": "test-results.txt",
+                "size": 18147,
+                "verifiedInStore": true
+              }
+            ],
+            "logChunks": 4,
+            "logTail": " \u001b[32m✓\u001b[39m packages/server/test/smoke.test.ts \u001b[2m(\u001b[22m\u001b[2m1 test\u001b[22m\u001b[2m)\u001b[22m\u001b[32m 286\u001b[2mms\u001b[22m\u001b[39m\n{\"time\":\"2026-11-16T23:56:37.280Z\",\"level\":\"info\",\"event\":\"call\",\"instance\":\"resolver-612\",\"requestId\":\"req_1aafe2f6a6ec4ee49fd5\",\"operation\":\"resolver.resolve\",\"code\":\"OK\",\"durationMs\":1,\"tenant\":\"acme\",\"principal\":\"ea998ea4-8c78-4f86-a250-aff6b4304abd\",\"ref\":\"ref://prod/chat/model\",\"revision\":1}\n{\"time\":\"2026-11-16T23:56:37.284Z\",\"level\":\"info\",\"event\":\"call\",\"instance\":\"resolver-612\",\"requestId\":\"req_48801d96b71a4469b99c\",\"operation\":\"resolver.put\",\"code\":\"OK\",\"durationMs\":2,\"tenant\":\"acme\",\"principal\":\"ea998ea4-8c78-4f86-a250-aff6b4304abd\",\"ref\":\"ref://prod/chat/model\",\"revision\":2}\n{\"time\":\"2026-11-16T23:56:37.371Z\",\"level\":\"info\",\"event\":\"call\",\"instance\":\"resolver-612\",\"requestId\":\"req_1b0174ed941547ee8f07\",\"operation\":\"resolver.resolve\",\"code\":\"OK\",\"durationMs\":1,\"tenant\":\"acme\",\"principal\":\"ea998ea4-8c78-4f86-a250-aff6b4304abd\",\"ref\":\"ref://prod/chat/model\",\"revision\":2}\n{\"time\":\"2026-11-16T23:56:37.468Z\",\"level\":\"info\",\"event\":\"call\",\"instance\":\"resolver-612\",\"requestId\":\"req_03db581b0b0946609bb7\",\"operation\":\"resolver.resolve\",\"code\":\"OK\",\"durationMs\":1,\"tenant\":\"acme\",\"principal\":\"ea998ea4-8c78-4f86-a250-aff6b4304abd\",\"ref\":\"ref://prod/llm/key\",\"revision\":1}\n{\"time\":\"2026-11-16T23:56:37.475Z\",\"level\":\"info\",\"event\":\"call\",\"instance\":\"resolver-612\",\"requestId\":\"req_44749e5c99434389b9b5\",\"operation\":\"resolver.resolve\",\"code\":\"OK\",\"durationMs\":3,\"tenant\":\"acme\",\"principal\":\"ea998ea4-8c78-4f86-a250-aff6b4304abd\",\"ref\":\"ref://prod/llm/key\",\"revision\":1}\n{\"time\":\"2026-11-16T23:56:37.525Z\",\"level\":\"info\",\"event\":\"call\",\"instance\":\"resolver-612\",\"requestId\":\"req_783ac3f1353b442f9e9a\",\"operation\":\"resolver.resolve\",\"code\":\"OK\",\"durationMs\":1,\"tenant\":\"acme\",\"principal\":\"ea998ea4-8c78-4f86-a250-aff6b4304abd\",\"ref\":\"ref://prod/chat/model\",\"revision\":2}\n{\"time\":\"2026-11-16T23:56:37.529Z\",\"level\":\"info\",\"event\":\"call\",\"instance\":\"resolver-612\",\"requestId\":\"req_455c87528a374715a60e\",\"operation\":\"resolver.rollback\",\"code\":\"OK\",\"durationMs\":2,\"tenant\":\"acme\",\"principal\":\"ea998ea4-8c78-4f86-a250-aff6b4304abd\",\"ref\":\"ref://prod/chat/model\",\"revision\":3}\n{\"time\":\"2026-11-16T23:56:37.577Z\",\"level\":\"info\",\"event\":\"call\",\"instance\":\"resolver-612\",\"requestId\":\"req_aee7d717e0394b30842f\",\"operation\":\"resolver.history\",\"code\":\"OK\",\"durationMs\":1,\"tenant\":\"acme\",\"principal\":\"ea998ea4-8c78-4f86-a250-aff6b4304abd\",\"ref\":\"ref://prod/chat/model\"}\n{\"time\":\"2026-11-16T23:56:37.669Z\",\"level\":\"info\",\"event\":\"call\",\"instance\":\"resolver-612\",\"requestId\":\"req_5e6def7ee8644986b5b8\",\"operation\":\"resolver.keys.create\",\"code\":\"OK\",\"durationMs\":45,\"tenant\":\"acme\",\"principal\":\"ea998ea4-8c78-4f86-a250-aff6b4304abd\"}\n{\"time\":\"2026-11-16T23:56:37.671Z\",\"level\":\"info\",\"event\":\"call\",\"instance\":\"resolver-612\",\"requestId\":\"req_f79decfd6e624430a230\",\"operation\":\"resolver.grant\",\"code\":\"OK\",\"durationMs\":1,\"tenant\":\"acme\",\"principal\":\"ea998ea4-8c78-4f86-a250-aff6b4304abd\"}\n{\"time\":\"2026-11-16T23:56:37.723Z\",\"level\":\"info\",\"event\":\"call\",\"instance\":\"resolver-612\",\"requestId\":\"req_751d9028bf0d426e9497\",\"operation\":\"resolver.resolve\",\"code\":\"FORBIDDEN\",\"reason\":\"resolver.forbidden\",\"durationMs\":1,\"tenant\":\"acme\",\"principal\":\"8f48a0d8-1c4a-4549-b21e-4f845a334f96\",\"ref\":\"ref://prod/llm/key\"}\n \u001b[32m✓\u001b[39m packages/server/test/resilience.test.ts \u001b[2m(\u001b[22m\u001b[2m3 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[33m 1980\u001b[2mms\u001b[22m\u001b[39m\n   \u001b[33m\u001b[2m✓\u001b[22m\u001b[39m resolver outage\u001b[2m > \u001b[22mserves the last known good value within maxStaleSeconds, then fails \u001b[33m 1552\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m packages/server/test/cli.test.ts \u001b[2m(\u001b[22m\u001b[2m1 test\u001b[22m\u001b[2m)\u001b[22m\u001b[33m 1258\u001b[2mms\u001b[22m\u001b[39m\n   \u001b[33m\u001b[2m✓\u001b[22m\u001b[39m resolver CLI\u001b[2m > \u001b[22minitializes, serves, and manages references end to end \u001b[33m 1256\u001b[2mms\u001b[22m\u001b[39m\n\n\u001b[2m Test Files \u001b[22m \u001b[1m\u001b[32m24 passed\u001b[39m\u001b[22m\u001b[2m | \u001b[22m\u001b[33m3 skipped\u001b[39m\u001b[90m (27)\u001b[39m\n\u001b[2m      Tests \u001b[22m \u001b[1m\u001b[32m207 passed\u001b[39m\u001b[22m\u001b[2m | \u001b[22m\u001b[33m12 skipped\u001b[39m\u001b[90m (219)\u001b[39m\n\u001b[2m   Start at \u001b[22m 23:56:16\n\u001b[2m   Duration \u001b[22m 21.34s\u001b[2m (transform 1.48s, setup 0ms, collect 13.59s, tests 41.04s, environment 6ms, prepare 2.75s)\u001b[22m\n\n::boundry-ci:: artifact test-results.txt sha256:2f38fc0345ddb40baeafb0b388e82e3e185273fa079190a82985be079e600d94 (18147 bytes)\n::boundry-ci:: succeeded\n",
+            "logBytes": 18817
+          }
+        ]
+      },
+      {
+        "key": "types",
+        "name": "There are no type errors",
+        "state": "succeeded",
+        "reason": null,
+        "capabilities": [
+          "check.types@1.0.0",
+          "toolchain.node22"
+        ],
+        "image": "mirror.gcr.io/library/node@sha256:e9f565d32859f0cbfb52125eafe8be39390f24dac302dc3cdf566e8ba3ab21ee",
+        "imageDigest": null,
+        "needs": [],
+        "approval": {
+          "approvers": [],
+          "required": false
+        },
+        "permissions": {
+          "deploy": false,
+          "release": false
+        },
+        "attempts": [
+          {
+            "id": "run_1b7ff556d94e9b1287a95fdc-8d8460221bf4eb29-a1",
+            "n": 1,
+            "worker": "example-w2",
+            "state": "succeeded",
+            "exitCode": 0,
+            "reason": null,
+            "startedAt": 1794873399075,
+            "finishedAt": 1794873409007,
+            "inputs": [],
+            "artifacts": [],
+            "logChunks": 3,
+            "logTail": "::boundry-ci:: attempt run_1b7ff556d94e9b1287a95fdc-8d8460221bf4eb29-a1 job types image mirror.gcr.io/library/node@sha256:e9f565d32859f0cbfb52125eafe8be39390f24dac302dc3cdf566e8ba3ab21ee worker-revision unknown\n::boundry-ci:: source rkendel1/resolver@aaab053651a9144e470c3b62c1c550ab084effe7 definition ba86677c876aeed31d5853ad7a2de88b8dce1ba2070a034b1559c221502d23b9 plan e1f1acc83690f6e7def9f2453d78500dceaeed3b11c2d7bba8cdc45747a9fef8\n::step:: Install dependencies\n\nadded 203 packages in 4s\n::step:: There are no type errors\n\n> typecheck\n> tsc -b tsconfig.build.json --pretty\n\n::boundry-ci:: succeeded\n",
+            "logBytes": 605
+          }
+        ]
+      }
+    ],
+    "approvals": [],
+    "statuses": [
+      {
+        "context": "boundry/check/builds",
+        "state": "pending",
+        "delivered": true,
+        "attempts": 0,
+        "lastError": null
+      },
+      {
+        "context": "boundry/check",
+        "state": "pending",
+        "delivered": true,
+        "attempts": 0,
+        "lastError": null
+      },
+      {
+        "context": "boundry/check/types",
+        "state": "pending",
+        "delivered": true,
+        "attempts": 0,
+        "lastError": null
+      },
+      {
+        "context": "boundry/check/tests",
+        "state": "pending",
+        "delivered": true,
+        "attempts": 0,
+        "lastError": null
+      },
+      {
+        "context": "boundry/check/builds",
+        "state": "success",
+        "delivered": true,
+        "attempts": 0,
+        "lastError": null
+      },
+      {
+        "context": "boundry/check/tests",
+        "state": "success",
+        "delivered": true,
+        "attempts": 0,
+        "lastError": null
+      },
+      {
+        "context": "boundry/check/types",
+        "state": "success",
+        "delivered": true,
+        "attempts": 0,
+        "lastError": null
+      },
+      {
+        "context": "boundry/check",
+        "state": "success",
+        "delivered": true,
+        "attempts": 0,
+        "lastError": null
+      }
+    ]
+  }
+}

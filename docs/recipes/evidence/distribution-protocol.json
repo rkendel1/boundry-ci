@@ -1,0 +1,403 @@
+{
+  "example": "distribution-protocol",
+  "repository": "rkendel1/distribution-protocol",
+  "commit": "19d57958854194eb727a89d5f3ffb0a143b60054",
+  "overlay": {
+    "recipe": ".boundry/recipes/release.md",
+    "from": "examples/recipes/distribution-protocol/release.md"
+  },
+  "durationSeconds": 40,
+  "approvals": [
+    "mallory tried to approve “Publish the package to npm”: refused (mallory may not approve step-publish-npm)",
+    "randy approved “Publish the package to npm”"
+  ],
+  "statusesCaptured": [],
+  "evidence": {
+    "run": {
+      "actor": "randy",
+      "cancelInProgress": false,
+      "cancelRequested": false,
+      "concurrencyGroup": null,
+      "createdAt": 1794873313903,
+      "definitionPath": ".boundry/recipes/release.md",
+      "downstream": [],
+      "eventId": "ev_46e7043f5a1267051ccf4a0a7e7b5e93df961c58",
+      "explanation": "# Prepare a release\n\nCheck everything, package the four packages, verify the package, and publish only after Randy approves.\n\nRecipe `.boundry/recipes/release.md` · sha256:c930f83d9b2a · compiled by boundry-recipes/1.0.0 with boundry-capabilities/1.0.1 · definition a1cdbbdbb90b\n\n## Runs when\n- an authorized person starts it\n\n## Project\n- Node.js project using npm (`package-lock.json`) in the repository root (evidence: `package-lock.json`, `package.json`)\n\n## Checks (4 jobs at the same time)\n1. **The generated spec files are current** — runs the custom script exactly as written (not checked by Boundry) ⚠ custom\n   Node.js 22 · installs dependencies first · internet: yes · capability `custom.check@1.0.0`\n2. **The packages install outside the repository** — runs the custom script exactly as written (not checked by Boundry) ⚠ custom\n   Node.js 22 · installs dependencies first · internet: yes · capability `custom.check@1.0.0`\n3. **The README quick start works** — runs the custom script exactly as written (not checked by Boundry) ⚠ custom\n   Node.js 22 · installs dependencies first · internet: yes · capability `custom.check@1.0.0`\n4. **The tests pass** — runs `npm test`\n   Node.js 22 · installs dependencies first · internet: yes · keeps `test-results.txt` · capability `check.tests@1.0.0`\n\n## Steps (in order, after every check passes)\n1. **Package the result** — `npm pack --workspaces`\n   Node.js 22 · installs dependencies first · internet: yes · keeps `package.tar` · capability `step.package@1.0.0`\n2. **Verify the package** — lists the package contents and records its digest\n   Node.js 22 · internet: no · uses `package.tar` (digest-verified) · keeps `release-manifest.txt` · capability `step.verify-package@1.0.0`\n3. **Publish the package to npm** — publishes exactly the packaged tarballs (by digest) with the repository's NPM_TOKEN\n   Node.js 22 · internet: yes · uses `package.tar` (digest-verified) · **waits for approval from randy** · **needs release permission** · uses secret `NPM_TOKEN` · capability `step.publish-npm@1.0.0` (partial)\n\n## Authority\n- Permissions: **release**\n- Secrets: `NPM_TOKEN`\n- Approvals: randy before “Publish the package to npm”\n- Publishes or deploys: “Publish the package to npm”\n- Proposed changes from forks never receive secrets, release/deploy access or trusted caches.\n\n## Kept\n- `package.tar` from “Package the result” for 365 days\n- `release-manifest.txt` from “Verify the package” for default days\n- `test-results.txt` from “The tests pass” for 30 days (also when tests fail)\n- The record: this recipe, its compiled plan, project facts, every attempt's log, inputs and outputs (always)\n\n## Afterward\n- Nothing is reported to GitHub (add “Report the result on the change” to do so)\n\n## Caution\n- “Publish the package to npm” uses a capability marked **partial**\n",
+      "finishedAt": 1794873354074,
+      "id": "run_7895d471f93835d5943f5c82",
+      "kind": "manual",
+      "pipeline": "Prepare a release",
+      "planDigest": "3fce148161834c6cd64dc2d5efdc208cd98f99597115e3d60c1e96edb603ce68",
+      "reason": null,
+      "recipe": {
+        "capabilities": {
+          "approval.person": "1.0.0",
+          "check.tests": "1.0.0",
+          "keep.evidence": "1.0.0",
+          "keep.package": "1.0.0",
+          "keep.test-results": "1.0.0",
+          "step.package": "1.0.0",
+          "step.publish-npm": "1.0.0",
+          "step.verify-package": "1.0.0",
+          "trigger.manual": "1.0.0"
+        },
+        "catalog": "boundry-capabilities/1.0.1",
+        "compiler": "boundry-recipes/1.0.0",
+        "definitionDigest": "a1cdbbdbb90b259ad58c8c90d9cb86f9c54229ffd8d80e31c7e6a6d10fbf2620",
+        "facts": {
+          "dir": ".",
+          "ecosystems": [
+            "node"
+          ],
+          "evidence": [
+            "package-lock.json",
+            "package.json"
+          ],
+          "node": {
+            "hints": {},
+            "lockfile": "package-lock.json",
+            "packageManager": "npm",
+            "scripts": {
+              "generate:spec": "node scripts/generate-spec.mjs",
+              "publish:dry-run": "node scripts/publish-packages.mjs --dry-run",
+              "publish:packages": "node scripts/publish-packages.mjs",
+              "test": "npm run test --workspaces --if-present",
+              "test:cli": "node --test packages/cli/src/*.test.mjs",
+              "test:conformance": "node --test packages/conformance/src/*.test.mjs"
+            },
+            "workspaces": true
+          }
+        },
+        "factsDigest": "548ab9f0e90ec707c5897444e25837db3671e89334ff466c29df0c9bed6741f8",
+        "path": ".boundry/recipes/release.md",
+        "sourceDigest": "c930f83d9b2a1f5b05e8e7f4020ea5972e9a4b1372aa312b92380e5fb8ed56a8",
+        "title": "Prepare a release"
+      },
+      "ref": "refs/heads/main",
+      "repository": "rkendel1/distribution-protocol",
+      "sha": "19d57958854194eb727a89d5f3ffb0a143b60054",
+      "sourceDigest": "c930f83d9b2a1f5b05e8e7f4020ea5972e9a4b1372aa312b92380e5fb8ed56a8",
+      "state": "failed",
+      "statusPrefix": null,
+      "trusted": true
+    },
+    "trigger": {
+      "kind": "manual",
+      "ref": "refs/heads/main",
+      "sha": "19d57958854194eb727a89d5f3ffb0a143b60054",
+      "actor": "randy",
+      "provider": "github",
+      "deliveryId": "example-distribution-protocol-19d57958854194eb727a89d5f3ffb0a143b60054",
+      "receivedAt": 1794873313903,
+      "trusted": true
+    },
+    "definition": {
+      "path": ".boundry/recipes/release.md",
+      "sha256": "c930f83d9b2a1f5b05e8e7f4020ea5972e9a4b1372aa312b92380e5fb8ed56a8",
+      "source": "# Prepare a release\n\nCheck everything, package the four packages, verify the package, and publish only after Randy approves.\n\n## When this happens\n- I approve a release.\n\n## Make sure\n- The tests pass.\n\n## Steps\n1. Package the result.\n2. Verify the package.\n3. Ask randy to approve the release.\n4. Publish the package to npm.\n\n## Keep\n- The test results.\n- The package.\n- The release evidence.\n\n## Custom checks\n\n### The README quick start works\n```sh\nbash scripts/smoke-quickstart.sh\n```\n\n### The generated spec files are current\n```sh\ncp -r spec /tmp/spec-committed\nnpm run generate:spec\ndiff -r /tmp/spec-committed spec\n```\n\n### The packages install outside the repository\n```sh\nnpm run publish:dry-run\n```\n"
+    },
+    "jobs": [
+      {
+        "key": "custom-the-generated-spec-files-are-current",
+        "name": "The generated spec files are current",
+        "state": "succeeded",
+        "reason": null,
+        "capabilities": [
+          "custom.check@1.0.0",
+          "toolchain.node22"
+        ],
+        "image": "mirror.gcr.io/library/node@sha256:e9f565d32859f0cbfb52125eafe8be39390f24dac302dc3cdf566e8ba3ab21ee",
+        "imageDigest": null,
+        "needs": [],
+        "approval": {
+          "approvers": [],
+          "required": false
+        },
+        "permissions": {
+          "deploy": false,
+          "release": false
+        },
+        "attempts": [
+          {
+            "id": "run_7895d471f93835d5943f5c82-decd9b81e2c579e3-a1",
+            "n": 1,
+            "worker": "example-w1",
+            "state": "succeeded",
+            "exitCode": 0,
+            "reason": null,
+            "startedAt": 1794873348597,
+            "finishedAt": 1794873350110,
+            "inputs": [],
+            "artifacts": [],
+            "logChunks": 2,
+            "logTail": "::boundry-ci:: attempt run_7895d471f93835d5943f5c82-decd9b81e2c579e3-a1 job custom-the-generated-spec-files-are-current image mirror.gcr.io/library/node@sha256:e9f565d32859f0cbfb52125eafe8be39390f24dac302dc3cdf566e8ba3ab21ee worker-revision unknown\n::boundry-ci:: source rkendel1/distribution-protocol@19d57958854194eb727a89d5f3ffb0a143b60054 definition c930f83d9b2a1f5b05e8e7f4020ea5972e9a4b1372aa312b92380e5fb8ed56a8 plan 3fce148161834c6cd64dc2d5efdc208cd98f99597115e3d60c1e96edb603ce68\n::step:: Install dependencies\n\nadded 4 packages in 357ms\n::step:: The generated spec files are current\n\n> @distribution-protocol/workspace@1.0.0 generate:spec\n> node scripts/generate-spec.mjs\n\nwrote spec/manifest.schema.json\nwrote spec/test-vectors/canonicalization.json\nwrote spec/test-vectors/publisher.json\nwrote spec/test-vectors/publisher-rotation.json\nwrote spec/test-vectors/publisher-revocation.json\n::boundry-ci:: succeeded\n",
+            "logBytes": 922
+          }
+        ]
+      },
+      {
+        "key": "custom-the-packages-install-outside-the-reposit",
+        "name": "The packages install outside the repository",
+        "state": "succeeded",
+        "reason": null,
+        "capabilities": [
+          "custom.check@1.0.0",
+          "toolchain.node22"
+        ],
+        "image": "mirror.gcr.io/library/node@sha256:e9f565d32859f0cbfb52125eafe8be39390f24dac302dc3cdf566e8ba3ab21ee",
+        "imageDigest": null,
+        "needs": [],
+        "approval": {
+          "approvers": [],
+          "required": false
+        },
+        "permissions": {
+          "deploy": false,
+          "release": false
+        },
+        "attempts": [
+          {
+            "id": "run_7895d471f93835d5943f5c82-0397e0ce2b2534c2-a1",
+            "n": 1,
+            "worker": "example-w1",
+            "state": "succeeded",
+            "exitCode": 0,
+            "reason": null,
+            "startedAt": 1794873313992,
+            "finishedAt": 1794873348561,
+            "inputs": [],
+            "artifacts": [],
+            "logChunks": 23,
+            "logTail": "wrote spec/test-vectors/publisher-revocation.json\n  ok  spec/ matches the code\n\n\u001b[1m== pack\u001b[0m\n  ok  distribution-protocol-protocol-1.0.0.tgz  23 files, 53.5 kB\n  ok  distribution-protocol-registry-1.0.0.tgz  14 files, 25.5 kB\n  ok  distribution-protocol-conformance-1.0.0.tgz  12 files, 13.0 kB\n  ok  distribution-protocol-cli-1.0.0.tgz  6 files, 18.9 kB\n\n\u001b[1m== inspect tarballs\u001b[0m\n  ok  protocol: clean\n  ok  registry: clean\n  ok  conformance: clean\n  ok  cli: clean\n\n\u001b[1m== install the tarballs into an empty project and use them\u001b[0m\n  ok  installed offline\nprobe ok\n  ok  installed CLI reports 1.0.0\n\n\u001b[1m== dry run complete\u001b[0m\nWould publish @distribution-protocol/protocol@1.0.0, @distribution-protocol/registry@1.0.0, @distribution-protocol/conformance@1.0.0, @distribution-protocol/cli@1.0.0.\nNothing was published.\n::boundry-ci:: succeeded\n",
+            "logBytes": 127197
+          }
+        ]
+      },
+      {
+        "key": "custom-the-readme-quick-start-works",
+        "name": "The README quick start works",
+        "state": "succeeded",
+        "reason": null,
+        "capabilities": [
+          "custom.check@1.0.0",
+          "toolchain.node22"
+        ],
+        "image": "mirror.gcr.io/library/node@sha256:e9f565d32859f0cbfb52125eafe8be39390f24dac302dc3cdf566e8ba3ab21ee",
+        "imageDigest": null,
+        "needs": [],
+        "approval": {
+          "approvers": [],
+          "required": false
+        },
+        "permissions": {
+          "deploy": false,
+          "release": false
+        },
+        "attempts": [
+          {
+            "id": "run_7895d471f93835d5943f5c82-d4ccc7ec3bf78777-a1",
+            "n": 1,
+            "worker": "example-w2",
+            "state": "succeeded",
+            "exitCode": 0,
+            "reason": null,
+            "startedAt": 1794873348598,
+            "finishedAt": 1794873351679,
+            "inputs": [],
+            "artifacts": [],
+            "logChunks": 3,
+            "logTail": "release   product://acme/widget@1.2.0\nartifact  widget-linux-x64  sha256:2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824\ninterface cli (cli)\nacquired 5 bytes\ndigest   sha256:2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824  (verified)\ntrust    publisher publisher://acme trusted (document), key key-1 not revoked\nwritten  widget\nreceipt  receipt.json\nhello\n[AUTHENTICATION_REQUIRED] authentication is required for this request\n[FORBIDDEN] this credential has no write access to namespace \"acme\"\nprivate key -> thief.pem  (keep secret)\npublic key  -> thief.pem.pub\npublisher document -> thief.json\npublisher publisher://acme  key thief\n[PUBLISHER_CONFLICT] publisher publisher://acme already has a different document at sequence 1\nTRUST FAILURE [UNKNOWN_PUBLISHER] — refusing to acquire widget-linux-x64.\n  publisher publisher://acme, key key-1\n  publisher publisher://acme is not in the trust policy. Trust it deliberately with `distribution trust add publisher://acme --publisher-document <doc.json>`, or pass --allow-untrusted to accept integrity and signature only.\n  The bytes and signature may be valid, but the publisher is not trusted by this consumer. Nothing was written.\nINTEGRITY FAILURE — the registry returned bytes that do not match the signed digest.\ncould not acquire widget-linux-x64 (sha256:2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824): no source produced sha256:2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824: 1 returned different bytes\nquick start OK\n::boundry-ci:: succeeded\n",
+            "logBytes": 3044
+          }
+        ]
+      },
+      {
+        "key": "step-package",
+        "name": "Package the result",
+        "state": "succeeded",
+        "reason": null,
+        "capabilities": [
+          "step.package@1.0.0",
+          "toolchain.node22"
+        ],
+        "image": "mirror.gcr.io/library/node@sha256:e9f565d32859f0cbfb52125eafe8be39390f24dac302dc3cdf566e8ba3ab21ee",
+        "imageDigest": null,
+        "needs": [
+          "custom-the-generated-spec-files-are-current",
+          "custom-the-packages-install-outside-the-reposit",
+          "custom-the-readme-quick-start-works",
+          "tests"
+        ],
+        "approval": {
+          "approvers": [],
+          "required": false
+        },
+        "permissions": {
+          "deploy": false,
+          "release": false
+        },
+        "attempts": [
+          {
+            "id": "run_7895d471f93835d5943f5c82-6884166bc2c82d47-a1",
+            "n": 1,
+            "worker": "example-w1",
+            "state": "succeeded",
+            "exitCode": 0,
+            "reason": null,
+            "startedAt": 1794873351708,
+            "finishedAt": 1794873353327,
+            "inputs": [],
+            "artifacts": [
+              {
+                "digest": "517a5f3594d24199d1583f9fac467af881fa112746b52bcafa40f50a0a33a72e",
+                "name": "package.tar",
+                "size": 122880,
+                "verifiedInStore": true
+              }
+            ],
+            "logChunks": 2,
+            "logTail": "npm notice 17.5kB src/http.mjs\nnpm notice 1.3kB src/index.mjs\nnpm notice 17.6kB src/local-registry.mjs\nnpm notice 14.0kB src/memory-registry.mjs\nnpm notice 3.8kB src/namespace-policy.mjs\nnpm notice 1.9kB src/registry-transport.mjs\nnpm notice 2.4kB src/server.mjs\nnpm notice Tarball Details\nnpm notice name: @distribution-protocol/registry\nnpm notice version: 1.0.0\nnpm notice filename: distribution-protocol-registry-1.0.0.tgz\nnpm notice package size: 26.1 kB\nnpm notice unpacked size: 94.1 kB\nnpm notice shasum: e6b08b48612a29ae220f74479380fc8a839d7970\nnpm notice integrity: sha512-zxIiqf0UWfSCT[...]/iqNzRerzoT/Q==\nnpm notice total files: 14\nnpm notice\ndistribution-protocol-cli-1.0.0.tgz\ndistribution-protocol-conformance-1.0.0.tgz\ndistribution-protocol-protocol-1.0.0.tgz\ndistribution-protocol-registry-1.0.0.tgz\n::step:: Seal the package\n::boundry-ci:: artifact package.tar sha256:517a5f3594d24199d1583f9fac467af881fa112746b52bcafa40f50a0a33a72e (122880 bytes)\n::boundry-ci:: succeeded\n",
+            "logBytes": 4715
+          }
+        ]
+      },
+      {
+        "key": "step-publish-npm",
+        "name": "Publish the package to npm",
+        "state": "failed",
+        "reason": "secret not available: NPM_TOKEN is not configured for rkendel1/distribution-protocol (no secret file)",
+        "capabilities": [
+          "step.publish-npm@1.0.0",
+          "toolchain.node22"
+        ],
+        "image": "mirror.gcr.io/library/node@sha256:e9f565d32859f0cbfb52125eafe8be39390f24dac302dc3cdf566e8ba3ab21ee",
+        "imageDigest": null,
+        "needs": [
+          "step-verify-package"
+        ],
+        "approval": {
+          "approvers": [
+            "randy"
+          ],
+          "required": true
+        },
+        "permissions": {
+          "deploy": false,
+          "release": true
+        },
+        "attempts": []
+      },
+      {
+        "key": "step-verify-package",
+        "name": "Verify the package",
+        "state": "succeeded",
+        "reason": null,
+        "capabilities": [
+          "step.verify-package@1.0.0",
+          "toolchain.node22"
+        ],
+        "image": "mirror.gcr.io/library/node@sha256:e9f565d32859f0cbfb52125eafe8be39390f24dac302dc3cdf566e8ba3ab21ee",
+        "imageDigest": null,
+        "needs": [
+          "step-package"
+        ],
+        "approval": {
+          "approvers": [],
+          "required": false
+        },
+        "permissions": {
+          "deploy": false,
+          "release": false
+        },
+        "attempts": [
+          {
+            "id": "run_7895d471f93835d5943f5c82-c3ee323377fa7b36-a1",
+            "n": 1,
+            "worker": "example-w1",
+            "state": "succeeded",
+            "exitCode": 0,
+            "reason": null,
+            "startedAt": 1794873353363,
+            "finishedAt": 1794873354041,
+            "inputs": [
+              {
+                "digest": "517a5f3594d24199d1583f9fac467af881fa112746b52bcafa40f50a0a33a72e",
+                "fromAttempt": "run_7895d471f93835d5943f5c82-6884166bc2c82d47-a1",
+                "fromJob": "step-package",
+                "name": "package.tar",
+                "size": 122880
+              }
+            ],
+            "artifacts": [
+              {
+                "digest": "02971fd1d1ab0049e86df921aa32032c166d3cc60d38c42fc4b1ceeaa17e20df",
+                "name": "release-manifest.txt",
+                "size": 257,
+                "verifiedInStore": true
+              }
+            ],
+            "logChunks": 1,
+            "logTail": "::boundry-ci:: attempt run_7895d471f93835d5943f5c82-c3ee323377fa7b36-a1 job step-verify-package image mirror.gcr.io/library/node@sha256:e9f565d32859f0cbfb52125eafe8be39390f24dac302dc3cdf566e8ba3ab21ee worker-revision unknown\n::boundry-ci:: source rkendel1/distribution-protocol@19d57958854194eb727a89d5f3ffb0a143b60054 definition c930f83d9b2a1f5b05e8e7f4020ea5972e9a4b1372aa312b92380e5fb8ed56a8 plan 3fce148161834c6cd64dc2d5efdc208cd98f99597115e3d60c1e96edb603ce68\n::boundry-ci:: input package.tar sha256:517a5f3594d24199d1583f9fac467af881fa112746b52bcafa40f50a0a33a72e from step-package (run_7895d471f93835d5943f5c82-6884166bc2c82d47-a1) verified\n::step:: Verify the package\ndrwxr-xr-x 0/0               0 1970-01-01 00:00 ./\n-rw-r--r-- 0/0           19389 1970-01-01 00:00 ./distribution-protocol-cli-1.0.0.tgz\n-rw-r--r-- 0/0           13348 1970-01-01 00:00 ./distribution-protocol-conformance-1.0.0.tgz\n-rw-r--r-- 0/0           54778 1970-01-01 00:00 ./distribution-protocol-protocol-1.0.0.tgz\n-rw-r--r-- 0/0           26068 1970-01-01 00:00 ./distribution-protocol-registry-1.0.0.tgz\npackage.tar sha256 517a5f3594d24199d1583f9fac467af881fa112746b52bcafa40f50a0a33a72e\n./\n./distribution-protocol-cli-1.0.0.tgz\n./distribution-protocol-conformance-1.0.0.tgz\n./distribution-protocol-protocol-1.0.0.tgz\n./distribution-protocol-registry-1.0.0.tgz\n::boundry-ci:: artifact release-manifest.txt sha256:02971fd1d1ab0049e86df921aa32032c166d3cc60d38c42fc4b1ceeaa17e20df (257 bytes)\n::boundry-ci:: succeeded\n",
+            "logBytes": 1500
+          }
+        ]
+      },
+      {
+        "key": "tests",
+        "name": "The tests pass",
+        "state": "succeeded",
+        "reason": null,
+        "capabilities": [
+          "check.tests@1.0.0",
+          "toolchain.node22"
+        ],
+        "image": "mirror.gcr.io/library/node@sha256:e9f565d32859f0cbfb52125eafe8be39390f24dac302dc3cdf566e8ba3ab21ee",
+        "imageDigest": null,
+        "needs": [],
+        "approval": {
+          "approvers": [],
+          "required": false
+        },
+        "permissions": {
+          "deploy": false,
+          "release": false
+        },
+        "attempts": [
+          {
+            "id": "run_7895d471f93835d5943f5c82-59830ebc3a418411-a1",
+            "n": 1,
+            "worker": "example-w2",
+            "state": "succeeded",
+            "exitCode": 0,
+            "reason": null,
+            "startedAt": 1794873314003,
+            "finishedAt": 1794873343210,
+            "inputs": [],
+            "artifacts": [
+              {
+                "digest": "a1001800109b79282cf7c40963edb77a980932e290986725bfc8655ea63b2778",
+                "name": "test-results.txt",
+                "size": 122681,
+                "verifiedInStore": true
+              }
+            ],
+            "logChunks": 5,
+            "logTail": "  ...\n# Subtest: a registry cannot redirect a product to another owner\nok 188 - a registry cannot redirect a product to another owner\n  ---\n  duration_ms: 2.228998\n  type: 'test'\n  ...\n# Subtest: two consumers with different policies reach different verdicts\nok 189 - two consumers with different policies reach different verdicts\n  ---\n  duration_ms: 5.480912\n  type: 'test'\n  ...\n1..189\n# tests 189\n# suites 0\n# pass 189\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 1867.313884\n::boundry-ci:: artifact test-results.txt sha256:a1001800109b79282cf7c40963edb77a980932e290986725bfc8655ea63b2778 (122681 bytes)\n::boundry-ci:: succeeded\n",
+            "logBytes": 123366
+          }
+        ]
+      }
+    ],
+    "approvals": [
+      {
+        "approver": "randy",
+        "at": 1794873354055,
+        "id": "run_7895d471f93835d5943f5c82-760266eed0196092-6aac1e2f1838",
+        "jobId": "run_7895d471f93835d5943f5c82-760266eed0196092",
+        "planDigestAtApproval": "3fce148161834c6cd64dc2d5efdc208cd98f99597115e3d60c1e96edb603ce68",
+        "runId": "run_7895d471f93835d5943f5c82"
+      }
+    ],
+    "statuses": []
+  }
+}
