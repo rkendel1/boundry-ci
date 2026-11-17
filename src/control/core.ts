@@ -121,7 +121,7 @@ export class ControlPlane {
    * Boundry Recipes (.boundry/recipes/*.md) are compiled against project facts read at the commit; each recipe
    * whose triggers match becomes one run. Repositories without recipes use the legacy .boundry/ci.yaml.
    */
-  async intake(ev: SourceEvent, opts: { source?: string } = {}): Promise<{ runId: string | null; runIds: string[]; duplicate: boolean; state: string }> {
+  async intake(ev: SourceEvent, opts: { source?: string; recipe?: { path: string; source: string } } = {}): Promise<{ runId: string | null; runIds: string[]; duplicate: boolean; state: string }> {
     const eventKey = `${ev.provider}:${ev.deliveryId}`;
     const eventId = eventIdOf(eventKey);
     const existing = await this.store.get(C.events, eventId);
@@ -131,12 +131,13 @@ export class ControlPlane {
     const now = this.now();
     const ctx = { repository: ev.repository, kind: ev.kind, ref: ev.ref, sha: ev.sha, trusted: ev.trusted, baseBranch: ev.baseBranch, cron: ev.cron };
     const units: Unit[] = [];
-    const recipeFiles = opts.source === undefined ? await this.#recipeFiles(ev) : null;
+    // An execution request (e.g. from Boundry Maintenance) supplies the recipe; the repository supplies the facts.
+    const recipeFiles = opts.recipe ? [opts.recipe.path.split("/").pop()!] : opts.source === undefined ? await this.#recipeFiles(ev) : null;
     if (recipeFiles && recipeFiles.length) {
       const files = scmFiles(this.scm, ev.repository, ev.sha);
       for (const name of recipeFiles) {
-        const path = `${RECIPES_DIR}/${name}`;
-        const source = (await files.read(path)) ?? "";
+        const path = opts.recipe ? opts.recipe.path : `${RECIPES_DIR}/${name}`;
+        const source = opts.recipe ? opts.recipe.source : (await files.read(path)) ?? "";
         const runId = stableId("run", eventKey, path);
         try {
           const c = await compileRecipeSource(source, path, files, ctx);

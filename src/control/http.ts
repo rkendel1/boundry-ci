@@ -240,6 +240,17 @@ export function createControlServer(o: HttpOptions): Server {
         await cp.approve(decodeURIComponent(mm[1]), who);
         return send(res, 200, { ok: true });
       }
+      // Execution request from an authority that owns the decision (Boundry Maintenance): run this recipe on
+      // this exact commit. Idempotent per requestId; the requester receives run ids and reads evidence later.
+      if (req.method === "POST" && p === "/v1/executions") {
+        const who = operator(req);
+        const b = await json(req);
+        if (!/^[A-Za-z0-9][A-Za-z0-9@._\/-]{0,200}$/.test(String(b.requestId ?? ""))) throw new HttpError(400, "requestId required");
+        if (!/^[0-9a-f]{40}$/.test(String(b.commit ?? ""))) throw new HttpError(400, "commit must be a full sha");
+        if (!b.recipe?.source || !/^\.boundry\/recipes\/[A-Za-z0-9._-]+\.md$/.test(String(b.recipe.path ?? ""))) throw new HttpError(400, "recipe {path, source} required");
+        const r = await cp.intake({ provider: "execution", deliveryId: String(b.requestId), kind: "manual", repository: String(b.repository), ref: `refs/heads/${String(b.branch ?? "main")}`, sha: String(b.commit), trusted: true, actor: who }, { recipe: { path: String(b.recipe.path), source: String(b.recipe.source) } });
+        return send(res, r.duplicate ? 200 : 201, r);
+      }
       if (req.method === "POST" && p === "/v1/dispatch") {
         const who = operator(req);
         const b = await json(req);

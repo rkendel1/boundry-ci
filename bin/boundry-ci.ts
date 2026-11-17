@@ -14,6 +14,7 @@ import { ControlPlane, type SecretProvider } from "../src/control/core.ts";
 import { createControlServer } from "../src/control/http.ts";
 import { ContentStore } from "../src/artifacts/cas.ts";
 import { GithubAdapter } from "../src/scm/github.ts";
+import { GitScmAdapter } from "../src/scm/git.ts";
 import { WorkerAgent } from "../src/worker/agent.ts";
 import { OciExecutor } from "../src/worker/executor.ts";
 import { compile } from "../src/spec/compile.ts";
@@ -67,6 +68,12 @@ function store() {
   return new FeltStore({ url: env("BCI_FELTDB_URL"), token: secretFile("BCI_FELTDB_TOKEN_FILE") });
 }
 
+/** Source adapter: GitHub (default) or plain git (BCI_SCM=git, BCI_GIT_URL_TEMPLATE="https://host/{repo}.git"). */
+function scm() {
+  if (process.env.BCI_SCM === "git") return new GitScmAdapter(env("BCI_GIT_URL_TEMPLATE"), join(env("BCI_DATA_DIR"), "git-mirrors"));
+  return github();
+}
+
 function github() {
   const installations: Record<string, string> = {};
   for (const kv of (process.env.BCI_GITHUB_INSTALLATIONS ?? "").split(",").filter(Boolean)) {
@@ -84,7 +91,7 @@ function github() {
 
 async function control() {
   const cp = new ControlPlane({
-    store: store(), scm: github(), secrets: new FileSecrets(env("BCI_SECRETS_DIR")),
+    store: store(), scm: scm(), secrets: new FileSecrets(env("BCI_SECRETS_DIR")),
     leaseMs: Number(env("BCI_LEASE_MS", "60000")), publicUrl: process.env.BCI_PUBLIC_URL,
   });
   const operators: Record<string, string> = {};
