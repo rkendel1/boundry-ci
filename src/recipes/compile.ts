@@ -204,7 +204,7 @@ export function compileParsed(parsed: ParsedRecipe, source: string, path: string
     const runSteps: { name: string; run: string }[] = [];
     if (install) runSteps.push({ name: "Install dependencies", run: toolchain.install.join("\n") });
     let main = r.run.join("\n");
-    const out = it.cap.output && keeps.has(it.cap.output) ? it.cap.output : (it.cap.id === "step.package" || it.cap.id === "step.verify-package" ? it.cap.output : undefined);
+    const out = it.cap.output && keeps.has(it.cap.output) ? it.cap.output : (it.cap.id === "step.package" || it.cap.id === "step.package-crates" || it.cap.id === "step.verify-package" ? it.cap.output : undefined);
     const artifacts: PlanJob["artifacts"] = [];
     const keptHere: string[] = [];
     if (out === "test-results.txt") {

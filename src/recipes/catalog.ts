@@ -215,6 +215,13 @@ export const CAPABILITIES: Capability[] = [
       if (eco === "rust") return { run: ["cargo build --locked --release", "mkdir -p boundry-out/pkg", "find target/release -maxdepth 1 -type f -perm -u+x -exec cp {} boundry-out/pkg/ \\;", "ls boundry-out/pkg"], summary: "runs `cargo build --release` and collects the executables" };
       return { unsupported: `packaging ${eco} projects is not supported yet`, status: "unavailable" };
     } },
+  // Library crates for a registry (not executables): exactly the .crate files `cargo package` produces, which are
+  // what a Cargo registry stores and checksums. Verification (`cargo package` builds each packaged crate) stays on.
+  { id: "step.package-crates", version: "1.0.0", kind: "step", status: "implemented", title: "Package the crates", output: "package.tar",
+    phrases: ["package crates", "package the crates", "package crate", "package rust crates"], evidence: ["package.tar of .crate files (sha256 recorded)", "log"],
+    implement: (f, eco) => eco === "rust"
+      ? { run: ["cargo package --locked --workspace", "mkdir -p boundry-out/pkg", "cp target/package/*.crate boundry-out/pkg/", "ls boundry-out/pkg"], summary: "runs `cargo package --locked --workspace` and collects the .crate files" }
+      : { unsupported: "packaging crates applies to Rust projects only", status: "unavailable" } },
   { id: "step.verify-package", version: "1.0.0", kind: "step", status: "implemented", title: "Verify the package", input: "package.tar", output: "release-manifest.txt",
     phrases: ["verify package", "check package contents", "verify release package", "verify packaged result"], evidence: ["input digest verified by the worker", "release-manifest.txt"],
     implement: () => ({ run: ["mkdir -p boundry-out", "tar -tvf boundry-in/package.tar", "{ echo \"package.tar sha256 $(sha256sum boundry-in/package.tar | cut -d' ' -f1)\"; tar -tf boundry-in/package.tar; } > boundry-out/release-manifest.txt", "cat boundry-out/release-manifest.txt"], summary: "lists the package contents and records its digest" }) },
@@ -237,7 +244,7 @@ export const CAPABILITIES: Capability[] = [
     phrases: ["build output", "built application", "build result", "build artifacts"], evidence: ["content-addressed artifact"] },
   { id: "keep.test-results", version: "1.0.0", kind: "keep", status: "implemented", title: "The test results (test runner output, also when tests fail)", keeps: { artifact: "test-results.txt", producedBy: ["check.tests", "step.tests"], always: true },
     phrases: ["test results", "test output", "test report"], evidence: ["content-addressed artifact"] },
-  { id: "keep.package", version: "1.0.0", kind: "keep", status: "implemented", title: "The package", keeps: { artifact: "package.tar", producedBy: ["step.package"] },
+  { id: "keep.package", version: "1.0.0", kind: "keep", status: "implemented", title: "The package", keeps: { artifact: "package.tar", producedBy: ["step.package", "step.package-crates"] },
     phrases: ["package", "release package", "packaged result"], evidence: ["content-addressed artifact"] },
   { id: "keep.evidence", version: "1.0.0", kind: "keep", status: "implemented", title: "A record of what was checked (recipe, plan, results) — always kept",
     phrases: ["record of what was checked", "release evidence", "record of what happened", "evidence", "record of what was done"], evidence: ["recipe source, compiled plan, facts, attempts, artifacts in FeltDB"] },
@@ -312,7 +319,7 @@ export const SAY: Record<string, string> = {
   "trigger.manual": "I start it", "trigger.schedule": "Every day at 06:00 UTC",
   "check.builds": "The application builds", "check.tests": "The tests pass", "check.types": "There are no type errors", "check.formatted": "The code is formatted",
   "check.lint": "The linter passes", "check.dependencies": "Dependencies have no known vulnerabilities", "check.browser": "Browser tests pass",
-  "step.build": "Build the application", "step.tests": "Run the full test suite", "step.package": "Package the result", "step.verify-package": "Verify the package",
+  "step.build": "Build the application", "step.tests": "Run the full test suite", "step.package": "Package the result", "step.package-crates": "Package the crates", "step.verify-package": "Verify the package",
   "step.publish-npm": "Publish the package to npm", "step.publish-github-release": "Create a GitHub release", "step.deploy": "Deploy the application",
   "step.verify-deployment": "Verify the deployment", "approval.person": "Ask Sam to approve the release",
   "keep.build-output": "The build output", "keep.test-results": "The test results", "keep.package": "The package", "keep.evidence": "A record of what was checked",

@@ -293,3 +293,14 @@ test("R12 least privilege: a release authority's token submits build-only execut
     for (const j of privileged) { assert.equal(j.state, "failed"); assert.match(j.reason!, /build-only/); }
   } finally { server.close(); }
 });
+
+test("R13 'Package the crates.' compiles to cargo package for Rust and is unavailable elsewhere", async () => {
+  const src = "# Release build\n\n## When this happens\n- I start it.\n\n## Make sure\n- The tests pass.\n\n## Steps\n1. Package the crates.\n\n## Keep\n- The package for 3650 days.\n";
+  const c = await compileOk(src, RUST);
+  const job = c.plan.jobs.find((j) => j.steps.some((s) => /cargo package --locked --workspace/.test(s.run)))!;
+  assert.ok(job, JSON.stringify(c.plan.jobs.map((j) => j.key)));
+  assert.ok(job.steps.some((s) => /boundry-out\/package\.tar/.test(s.run)), "sealed as package.tar");
+  assert.ok(!job.secrets.length && !job.permissions.release, "packaging needs no secrets and no release authority");
+  const d = await diagnostics(src, NODE);
+  assert.ok(d.some((x: any) => /Rust projects only/.test(JSON.stringify(x))), JSON.stringify(d));
+});
