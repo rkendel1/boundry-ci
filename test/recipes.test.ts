@@ -251,3 +251,45 @@ async function r11(db: FeltDbProcess) {
   assert.ok(ev.jobs.find((j: any) => j.key === "step-package").attempts[0].artifacts[0].digest === pkg.digest);
   assert.ok(ev.jobs.every((j: any) => j.capabilities.length >= 1));
 }
+
+test("R12 least privilege: a release authority's token submits build-only executions and reads only its own runs", async () => {
+  const { createControlServer } = await import("../src/control/http.ts");
+  const { ContentStore } = await import("../src/artifacts/cas.ts");
+  const { createHash } = await import("node:crypto");
+  const { mkdtempSync } = await import("node:fs");
+  const { tmpdir } = await import("node:os");
+  const { join } = await import("node:path");
+  const h = (t: string) => createHash("sha256").update(t).digest("hex");
+  const scm = new FakeScm();
+  const s = sha(12);
+  scm.trees.set(`acme/app@${s}`, { ...NODE });
+  const cp = new ControlPlane({ store: db.store(), scm, secrets: new MapSecrets({}) });
+  const cas = new ContentStore({ root: mkdtempSync(join(tmpdir(), "cas-")), minFreeBytes: 0 });
+  const RO = ["executions:submit", "runs:read", "artifacts:read"];
+  const server = createControlServer({ cp, cas, webhookSecret: "x", operators: { [h("admin-t")]: "ops", [h("rel-t")]: { who: "boundry-maintenance", scopes: RO }, [h("other-t")]: { who: "someone-else", scopes: RO } } });
+  await new Promise<void>((r) => server.listen(0, "127.0.0.1", r));
+  const base = `http://127.0.0.1:${(server.address() as any).port}`;
+  const call = (tok: string, method: string, path: string, body?: unknown) => fetch(`${base}${path}`, { method, headers: { authorization: `Bearer ${tok}`, ...(body ? { "content-type": "application/json" } : {}) }, body: body ? JSON.stringify(body) : undefined });
+  try {
+    const sub = await call("rel-t", "POST", "/v1/executions", { requestId: "rel-1", repository: "acme/app", commit: s, branch: "main", recipe: { path: ".boundry/recipes/boundry-release.md", source: CHECK.replace("- Someone proposes a change or updates the main branch.", "- I start it.") } });
+    assert.equal(sub.status, 201, await sub.clone().text());
+    const subj: any = await sub.json();
+    const runId = subj.runIds[0];
+    assert.ok(runId, JSON.stringify(subj));
+    assert.equal((await call("rel-t", "GET", `/v1/runs/${runId}`)).status, 200, "reads its own run");
+    assert.equal((await call("rel-t", "GET", `/v1/runs/${runId}/evidence`)).status, 200);
+    assert.equal((await call("other-t", "GET", `/v1/runs/${runId}`)).status, 404, "another submitter cannot see it");
+    assert.equal((await call("other-t", "GET", `/v1/runs/${runId}/evidence`)).status, 404);
+    assert.equal((await call("admin-t", "GET", `/v1/runs/${runId}`)).status, 200, "admin sees everything");
+    for (const [m, p, b] of [["POST", `/v1/runs/${runId}/cancel`], ["POST", `/v1/jobs/x/approve`], ["POST", "/v1/dispatch", { repository: "acme/app", sha: s }], ["GET", "/v1/diag/summary"], ["POST", "/v1/diag/canary"]] as const)
+      assert.equal((await call("rel-t", m, p, b)).status, 403, `${m} ${p} needs admin`);
+    assert.equal((await call("nobody", "GET", `/v1/runs/${runId}`)).status, 401);
+    // An execution request asking for publication: compiled, but its publishing job never gets secrets or release authority.
+    const rel = await call("rel-t", "POST", "/v1/executions", { requestId: "rel-2", repository: "acme/app", commit: s, branch: "main", recipe: { path: ".boundry/recipes/release.md", source: RELEASE } });
+    const relRun = (await rel.json() as any).runIds?.[0];
+    const jobs = await cp.store.query<JobRec>(C.jobs, [{ field: "runId", eq: relRun }], { limit: 100 });
+    const privileged = jobs.filter((j: any) => j.spec.secrets.length || j.spec.permissions.release || j.spec.permissions.deploy);
+    assert.ok(privileged.length > 0, "the release recipe does ask for publication authority");
+    for (const j of privileged) { assert.equal(j.state, "failed"); assert.match(j.reason!, /build-only/); }
+  } finally { server.close(); }
+});

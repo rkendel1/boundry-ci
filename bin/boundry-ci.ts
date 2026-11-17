@@ -94,11 +94,13 @@ async function control() {
     store: store(), scm: scm(), secrets: new FileSecrets(env("BCI_SECRETS_DIR")),
     leaseMs: Number(env("BCI_LEASE_MS", "60000")), publicUrl: process.env.BCI_PUBLIC_URL,
   });
-  const operators: Record<string, string> = {};
+  // One token per line: "<sha256 of token> <identity> [scope,scope]". No scopes = admin (backward compatible).
+  // A release authority gets: executions:submit,runs:read,artifacts:read — never admin.
+  const operators: Record<string, string | { who: string; scopes: string[] }> = {};
   if (process.env.BCI_OPERATOR_TOKENS_FILE) {
     for (const line of secretFile("BCI_OPERATOR_TOKENS_FILE").split("\n")) {
-      const [hash, who] = line.trim().split(/\s+/);
-      if (hash && who) operators[hash] = who;
+      const [hash, who, scopes] = line.trim().split(/\s+/);
+      if (hash && who) operators[hash] = scopes ? { who, scopes: scopes.split(",").filter(Boolean) } : who;
     }
   }
   const cas = new ContentStore({ root: join(env("BCI_DATA_DIR"), "cas"), minFreeBytes: Number(env("BCI_CAS_MIN_FREE_BYTES", String(10 * 1024 ** 3))) });

@@ -196,6 +196,9 @@ export class ControlPlane {
         // Authority: an untrusted source can never reach release/deploy capability or secrets.
         if (!ev.trusted && (pj.permissions.release || pj.permissions.deploy)) { state = "failed"; reason = "untrusted source cannot run release/deploy jobs"; }
         else if (!ev.trusted && pj.secrets.length) { state = "failed"; reason = "untrusted source cannot receive secrets"; }
+        // Execution requests (another authority's build, e.g. a release build) get build authority only:
+        // never secrets, never release/deploy permission. Publication stays with the requesting authority.
+        else if (ev.provider === "execution" && (pj.secrets.length || pj.permissions.release || pj.permissions.deploy)) { state = "failed"; reason = "execution requests are build-only: no secrets, release or deploy permission"; }
         ops.push({ collection: C.jobs, id: jobIdOf(u.runId, pj.key), requireAbsent: true, value: {
           runId: u.runId, key: pj.key, state, attempts: 0, spec: pj, trusted: ev.trusted, repository: ev.repository, sha: ev.sha,
           queuedAt: state === "queued" ? now : null, leaseId: null, leaseExpiresAt: null, workerId: null, attemptId: null,

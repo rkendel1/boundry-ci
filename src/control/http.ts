@@ -9,7 +9,7 @@
 import { createServer, type IncomingMessage, type ServerResponse, type Server } from "node:http";
 import { timingSafeEqual, createHash, randomUUID, randomBytes } from "node:crypto";
 import { Readable } from "node:stream";
-import { ControlPlane, C, artifactIdOf, type JobRec, AuthorityError, NotFound, Conflict, type WorkerRec, type RunRec } from "./core.ts";
+import { ControlPlane, C, artifactIdOf, type JobRec, type AttemptRec, AuthorityError, NotFound, Conflict, type WorkerRec, type RunRec } from "./core.ts";
 import { ContentStore, DigestMismatch, StorageExhausted, TooLarge } from "../artifacts/cas.ts";
 import { verifyWebhookSignature, normalizeGithubEvent } from "../scm/github.ts";
 import { PreconditionFailed, StoreUnavailable } from "../store/feltdb.ts";
@@ -18,8 +18,12 @@ export interface HttpOptions {
   cp: ControlPlane;
   cas: ContentStore;
   webhookSecret: string;
-  /** sha256 hex of operator tokens -> operator identity */
-  operators: Record<string, string>;
+  /**
+   * sha256 hex of operator tokens -> identity, or identity + scopes. A bare identity means scope "admin".
+   * Scopes: admin (everything), executions:submit (POST /v1/executions), runs:read (runs, jobs, statuses, logs,
+   * evidence), artifacts:read (artifact bytes). A token without admin reads only runs it submitted.
+   */
+  operators: Record<string, string | { who: string; scopes: string[] }>;
   log?: (msg: string, fields?: Record<string, unknown>) => void;
   /** Digest-pinned image used by deployment canaries. */
   canaryImage?: string;
@@ -61,13 +65,28 @@ export function createControlServer(o: HttpOptions): Server {
     if (!t) throw new HttpError(401, "worker token required");
     try { return await cp.authenticateWorker(t); } catch { throw new HttpError(401, "invalid worker token"); }
   };
-  const operator = (req: IncomingMessage): string => {
+  const caller = (req: IncomingMessage): { who: string; scopes: string[] } => {
     const t = bearer(req);
     const h = createHash("sha256").update(t).digest("hex");
-    for (const [hash, who] of Object.entries(o.operators)) {
-      if (t && hash.length === h.length && timingSafeEqual(Buffer.from(hash), Buffer.from(h))) return who;
+    for (const [hash, v] of Object.entries(o.operators)) {
+      if (t && hash.length === h.length && timingSafeEqual(Buffer.from(hash), Buffer.from(h))) return typeof v === "string" ? { who: v, scopes: ["admin"] } : v;
     }
     throw new HttpError(401, "operator token required");
+  };
+  /** Authenticate and require a scope ("admin" satisfies every scope). */
+  const operator = (req: IncomingMessage, scope = "admin"): string => {
+    const c = caller(req);
+    if (!c.scopes.includes("admin") && !c.scopes.includes(scope)) throw new HttpError(403, `token for ${c.who} lacks scope ${scope}`);
+    return c.who;
+  };
+  const isAdmin = (req: IncomingMessage) => caller(req).scopes.includes("admin");
+  /** A non-admin token reads only the runs it submitted (the run's triggering event names it as actor). */
+  const ownRun = async (req: IncomingMessage, runId: string, scope: string): Promise<RunRec> => {
+    const who = operator(req, scope);
+    const r = await cp.store.get<RunRec>(C.runs, runId);
+    if (!r) throw new HttpError(404, "not found");
+    if (!isAdmin(req) && (r as RunRec & { actor?: string | null }).actor !== who) throw new HttpError(404, "not found");
+    return r;
   };
   const json = async (req: IncomingMessage) => {
     const b = await readBody(req, MAX_JSON);
@@ -176,7 +195,7 @@ export function createControlServer(o: HttpOptions): Server {
         return void cas.open(inp.digest).pipe(res);
       }
       mm = m(/^\/v1\/runs\/([^/]+)\/evidence$/);
-      if (req.method === "GET" && mm) { operator(req); return send(res, 200, await cp.evidence(mm[1])); }
+      if (req.method === "GET" && mm) { await ownRun(req, mm[1], "runs:read"); return send(res, 200, await cp.evidence(mm[1])); }
       mm = m(/^\/v1\/artifacts\/sha256\/([0-9a-f]{64})$/);
       if (req.method === "PUT" && mm) {
         const w = await worker(req);
@@ -196,34 +215,41 @@ export function createControlServer(o: HttpOptions): Server {
       }
       mm = m(/^\/v1\/artifacts\/sha256\/([0-9a-f]{64})$/);
       if (req.method === "GET" && mm) {
-        operator(req);
+        operator(req, "artifacts:read");
+        if (!isAdmin(req)) {
+          // Without admin: only an artifact produced by a run this token submitted, named in ?run=.
+          const runId = url.searchParams.get("run") ?? "";
+          await ownRun(req, runId, "artifacts:read");
+          const attempts = await cp.store.query<AttemptRec>(C.attempts, [{ field: "runId", eq: runId }], { limit: 1000 });
+          if (!attempts.some((a) => a.artifacts.some((x) => x.digest === mm![1]))) throw new HttpError(404, "not found");
+        }
         if (!cas.has(mm[1])) throw new HttpError(404, "not found");
         res.writeHead(200, { "content-type": "application/octet-stream" });
         return void cas.open(mm[1]).pipe(res);
       }
 
       mm = m(/^\/v1\/runs\/([^/]+)$/);
-      if (req.method === "GET" && mm) {
-        operator(req);
-        const r = await cp.store.get<RunRec>(C.runs, mm[1]);
-        if (!r) throw new HttpError(404, "not found");
-        return send(res, 200, r);
-      }
+      if (req.method === "GET" && mm) return send(res, 200, await ownRun(req, mm[1], "runs:read"));
       mm = m(/^\/v1\/runs\/([^/]+)\/jobs$/);
       if (req.method === "GET" && mm) {
-        operator(req);
+        await ownRun(req, mm[1], "runs:read");
         const jobs = await cp.store.query(C.jobs, [{ field: "runId", eq: mm[1] }], { limit: 1000 });
         return send(res, 200, jobs.map(({ spec, ...j }: any) => ({ ...j, requires: spec.requires, needs: spec.needs })));
       }
       mm = m(/^\/v1\/runs\/([^/]+)\/statuses$/);
       if (req.method === "GET" && mm) {
-        operator(req);
+        await ownRun(req, mm[1], "runs:read");
         const rows = await cp.store.query(C.outbox, [{ field: "runId", eq: mm[1] }], { limit: 1000, orderBy: [{ field: "createdAt", direction: "asc" }] });
         return send(res, 200, rows.map((r: any) => ({ context: r.context, state: r.state, delivered: r.delivered, attempts: r.attempts, lastError: r.lastError ?? null })));
       }
       mm = m(/^\/v1\/attempts\/([^/]+)\/log$/);
       if (req.method === "GET" && mm) {
-        operator(req);
+        operator(req, "runs:read");
+        if (!isAdmin(req)) {
+          const at = await cp.store.get<AttemptRec>(C.attempts, decodeURIComponent(mm[1]));
+          if (!at) throw new HttpError(404, "not found");
+          await ownRun(req, at.runId, "runs:read");
+        }
         const text = await cp.readLog(decodeURIComponent(mm[1]));
         res.writeHead(200, { "content-type": "text/plain; charset=utf-8" });
         return res.end(text);
@@ -243,7 +269,7 @@ export function createControlServer(o: HttpOptions): Server {
       // Execution request from an authority that owns the decision (Boundry Maintenance): run this recipe on
       // this exact commit. Idempotent per requestId; the requester receives run ids and reads evidence later.
       if (req.method === "POST" && p === "/v1/executions") {
-        const who = operator(req);
+        const who = operator(req, "executions:submit");
         const b = await json(req);
         if (!/^[A-Za-z0-9][A-Za-z0-9@._\/-]{0,200}$/.test(String(b.requestId ?? ""))) throw new HttpError(400, "requestId required");
         if (!/^[0-9a-f]{40}$/.test(String(b.commit ?? ""))) throw new HttpError(400, "commit must be a full sha");
